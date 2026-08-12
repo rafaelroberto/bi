@@ -233,8 +233,8 @@
                 </div>
             </div>
 
-            <!-- TWO RANKINGS SIDE BY SIDE (VENDEDORES & ORIGENS) -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- TWO RANKINGS SIDE BY SIDE (VENDEDORES & ORIGENS) - LAYOUT OPTIMIZED -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 
                 <!-- 1. RANKING COMPLETO DE VENDEDORES -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
@@ -252,38 +252,38 @@
                         <table class="w-full text-left text-xs text-slate-600">
                             <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 select-none">
                                 <tr>
-                                    <th class="px-3 py-2.5 text-center w-10">Pos</th>
-                                    <th onclick="sortSellerRanking('user')" class="px-3 py-2.5 cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center space-x-1">
+                                    <th class="px-2 py-2 text-center w-8">Pos</th>
+                                    <th onclick="sortSellerRanking('user')" class="px-2 py-2 cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center space-x-0.5">
                                             <span>Vendedor</span>
                                             <span id="seller-icon-user" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortSellerRanking('total')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortSellerRanking('total')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Total</span>
                                             <span id="seller-icon-total" class="text-indigo-600 font-bold">↓</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortSellerRanking('ganhos')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortSellerRanking('ganhos')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Ganhos</span>
                                             <span id="seller-icon-ganhos" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortSellerRanking('perdidos')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortSellerRanking('perdidos')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Perdidos</span>
                                             <span id="seller-icon-perdidos" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortSellerRanking('conv')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortSellerRanking('conv')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Conv %</span>
                                             <span id="seller-icon-conv" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th class="px-3 py-2.5 text-right">Ação</th>
+                                    <th class="px-2 py-2 text-center w-12">Ação</th>
                                 </tr>
                             </thead>
                             <tbody id="seller-ranking-body" class="divide-y divide-slate-100 font-medium">
@@ -312,38 +312,38 @@
                         <table class="w-full text-left text-xs text-slate-600">
                             <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 select-none">
                                 <tr>
-                                    <th class="px-3 py-2.5 text-center w-10">Pos</th>
-                                    <th onclick="sortRanking('origName')" class="px-3 py-2.5 cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center space-x-1">
+                                    <th class="px-2 py-2 text-center w-8">Pos</th>
+                                    <th onclick="sortRanking('origName')" class="px-2 py-2 cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center space-x-0.5">
                                             <span>Origem</span>
                                             <span id="rank-icon-origName" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortRanking('total')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortRanking('total')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Total</span>
                                             <span id="rank-icon-total" class="text-indigo-600 font-bold">↓</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortRanking('ganhos')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortRanking('ganhos')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Ganhos</span>
                                             <span id="rank-icon-ganhos" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortRanking('perdidos')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortRanking('perdidos')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Perdidos</span>
                                             <span id="rank-icon-perdidos" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th onclick="sortRanking('convRate')" class="px-3 py-2.5 text-center cursor-pointer hover:bg-slate-100 transition">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <th onclick="sortRanking('convRate')" class="px-2 py-2 text-center cursor-pointer hover:bg-slate-100 transition">
+                                        <div class="flex items-center justify-center space-x-0.5">
                                             <span>Conv %</span>
                                             <span id="rank-icon-convRate" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th class="px-3 py-2.5 text-right">Ação</th>
+                                    <th class="px-2 py-2 text-center w-12">Ação</th>
                                 </tr>
                             </thead>
                             <tbody id="ranking-table-body" class="divide-y divide-slate-100 font-medium">
@@ -981,19 +981,19 @@
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-slate-50 transition';
                 row.innerHTML = `
-                    <td class="px-3 py-2 text-center whitespace-nowrap">${posBadge}</td>
-                    <td class="px-3 py-2 font-semibold text-slate-800">${item.user}</td>
-                    <td class="px-3 py-2 text-center font-bold text-slate-800">${item.total}</td>
-                    <td class="px-3 py-2 text-center text-emerald-600 font-bold">${item.ganhos}</td>
-                    <td class="px-3 py-2 text-center text-rose-600 font-bold">${item.perdidos}</td>
-                    <td class="px-3 py-2 text-center">
-                        <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-bold border border-indigo-100">
+                    <td class="px-2 py-2 text-center whitespace-nowrap">${posBadge}</td>
+                    <td class="px-2 py-2 font-semibold text-slate-800 truncate max-w-[120px]" title="${item.user}">${item.user}</td>
+                    <td class="px-2 py-2 text-center font-bold text-slate-800">${item.total}</td>
+                    <td class="px-2 py-2 text-center text-emerald-600 font-bold">${item.ganhos}</td>
+                    <td class="px-2 py-2 text-center text-rose-600 font-bold">${item.perdidos}</td>
+                    <td class="px-2 py-2 text-center whitespace-nowrap">
+                        <span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-bold text-[10px] border border-indigo-100">
                             ${item.conv}%
                         </span>
                     </td>
-                    <td class="px-3 py-2 text-right">
-                        <button onclick="drilldownSeller('${item.user}')" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition text-[10px]">
-                            Detalhes
+                    <td class="px-2 py-2 text-center whitespace-nowrap">
+                        <button onclick="drilldownSeller('${item.user}')" title="Ver Detalhes" class="p-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition inline-flex items-center justify-center">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                         </button>
                     </td>
                 `;
@@ -1078,19 +1078,19 @@
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-slate-50 transition';
                 row.innerHTML = `
-                    <td class="px-3 py-2 text-center whitespace-nowrap">${medalBadge}</td>
-                    <td class="px-3 py-2 font-semibold text-slate-800">${item.origName}</td>
-                    <td class="px-3 py-2 text-center font-bold text-slate-800">${item.total}</td>
-                    <td class="px-3 py-2 text-center text-emerald-600 font-bold">${item.ganhos}</td>
-                    <td class="px-3 py-2 text-center text-rose-600 font-bold">${item.perdidos}</td>
-                    <td class="px-3 py-2 text-center">
-                        <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-bold border border-indigo-100">
+                    <td class="px-2 py-2 text-center whitespace-nowrap">${medalBadge}</td>
+                    <td class="px-2 py-2 font-semibold text-slate-800 truncate max-w-[120px]" title="${item.origName}">${item.origName}</td>
+                    <td class="px-2 py-2 text-center font-bold text-slate-800">${item.total}</td>
+                    <td class="px-2 py-2 text-center text-emerald-600 font-bold">${item.ganhos}</td>
+                    <td class="px-2 py-2 text-center text-rose-600 font-bold">${item.perdidos}</td>
+                    <td class="px-2 py-2 text-center whitespace-nowrap">
+                        <span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-bold text-[10px] border border-indigo-100">
                             ${item.convRate}%
                         </span>
                     </td>
-                    <td class="px-3 py-2 text-right">
-                        <button onclick="drilldownOrigin('${item.origName}')" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition text-[10px]">
-                            Detalhes
+                    <td class="px-2 py-2 text-center whitespace-nowrap">
+                        <button onclick="drilldownOrigin('${item.origName}')" title="Ver Detalhes" class="p-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition inline-flex items-center justify-center">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                         </button>
                     </td>
                 `;
