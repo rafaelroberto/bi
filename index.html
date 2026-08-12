@@ -250,15 +250,45 @@
 
                 <div class="overflow-x-auto custom-scrollbar">
                     <table class="w-full text-left text-xs text-slate-600">
-                        <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 select-none">
                             <tr>
                                 <th class="px-4 py-3 text-center w-12">Posição</th>
-                                <th class="px-4 py-3">Origem Unificada</th>
-                                <th class="px-4 py-3 text-center">Total Leads</th>
-                                <th class="px-4 py-3 text-center">Ganhos</th>
-                                <th class="px-4 py-3 text-center">Perdidos</th>
-                                <th class="px-4 py-3 text-center">Em Andamento</th>
-                                <th class="px-4 py-3 text-center">Taxa de Conversão</th>
+                                <th onclick="sortRanking('origName')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Origem Unificada</span>
+                                        <span id="rank-icon-origName" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortRanking('total')" class="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span>Total Leads</span>
+                                        <span id="rank-icon-total" class="text-indigo-600 font-bold">↓</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortRanking('ganhos')" class="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span>Ganhos</span>
+                                        <span id="rank-icon-ganhos" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortRanking('perdidos')" class="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span>Perdidos</span>
+                                        <span id="rank-icon-perdidos" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortRanking('pipeline')" class="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span>Em Andamento</span>
+                                        <span id="rank-icon-pipeline" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortRanking('convRate')" class="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center justify-center space-x-1">
+                                        <span>Taxa de Conversão</span>
+                                        <span id="rank-icon-convRate" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
                                 <th class="px-4 py-3 text-right">Ação</th>
                             </tr>
                         </thead>
@@ -298,7 +328,7 @@
                 </div>
             </div>
 
-            <!-- Detailed Data Table -->
+            <!-- Detailed Data Table with Interactive Column Sorting -->
             <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
                 <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center space-x-2">
@@ -312,14 +342,44 @@
 
                 <div class="overflow-x-auto custom-scrollbar">
                     <table class="w-full text-left text-xs text-slate-600">
-                        <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 select-none">
                             <tr>
-                                <th class="px-4 py-3">Chave</th>
-                                <th class="px-4 py-3">Razão Social / Título</th>
-                                <th class="px-4 py-3">Data da Etapa</th>
-                                <th class="px-4 py-3">Usuário</th>
-                                <th class="px-4 py-3">Etapa</th>
-                                <th class="px-4 py-3">Origem Unificada</th>
+                                <th onclick="sortTable('chave')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Chave</span>
+                                        <span id="sort-icon-chave" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable('razao')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Razão Social / Título</span>
+                                        <span id="sort-icon-razao" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable('data_iso')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Data da Etapa</span>
+                                        <span id="sort-icon-data_iso" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable('usuario')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Usuário</span>
+                                        <span id="sort-icon-usuario" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable('etapa')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Etapa</span>
+                                        <span id="sort-icon-etapa" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable('indicacao')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Origem Unificada</span>
+                                        <span id="sort-icon-indicacao" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-slate-100 font-medium">
@@ -404,6 +464,14 @@
         let rawData = [];
         let filteredData = [];
         let selectedOrigins = []; // Array for multiselect
+
+        // Sorting State for Main Detailed Table
+        let currentSortColumn = 'data_iso';
+        let currentSortDirection = 'desc'; // 'asc' or 'desc'
+
+        // Sorting State for Ranking Table
+        let rankingSortColumn = 'total';
+        let rankingSortDirection = 'desc';
         
         let currentPage = 1;
         const rowsPerPage = 15;
@@ -746,6 +814,7 @@
             });
 
             currentPage = 1;
+            applySortingToData();
             updateKPIs();
             renderRankingTable();
             renderCharts();
@@ -790,8 +859,29 @@
                 else rankingMap[orig].pipeline++;
             });
 
-            // Sort by Total Leads descending
-            const sortedRanking = Object.entries(rankingMap).sort((a,b) => b[1].total - a[1].total);
+            // Convert to list for flexible sorting
+            let rankingList = Object.entries(rankingMap).map(([origName, stats]) => {
+                const fin = stats.ganhos + stats.perdidos;
+                const convRate = fin > 0 ? parseFloat(((stats.ganhos / fin) * 100).toFixed(1)) : 0;
+                return { origName, total: stats.total, ganhos: stats.ganhos, perdidos: stats.perdidos, pipeline: stats.pipeline, convRate, stats };
+            });
+
+            // Sort Ranking List dynamically
+            rankingList.sort((a, b) => {
+                let valA = a[rankingSortColumn];
+                let valB = b[rankingSortColumn];
+
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return rankingSortDirection === 'asc' ? valA - valB : valB - valA;
+                }
+                valA = String(valA || '').toLowerCase();
+                valB = String(valB || '').toLowerCase();
+                if (valA < valB) return rankingSortDirection === 'asc' ? -1 : 1;
+                if (valA > valB) return rankingSortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            const sortedRanking = rankingList.map(item => [item.origName, item.stats]);
 
             if (sortedRanking.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Nenhuma origem atende aos filtros atuais.</td></tr>`;
@@ -1007,6 +1097,65 @@
                     plugins: { legend: { display: false } },
                     scales: { x: { beginAtZero: true } }
                 }
+            });
+        }
+
+        
+        function sortTable(columnKey) {
+            if (currentSortColumn === columnKey) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = columnKey;
+                currentSortDirection = 'asc';
+            }
+            updateSortIcons('sort-icon-', currentSortColumn, currentSortDirection, ['chave', 'razao', 'data_iso', 'usuario', 'etapa', 'indicacao']);
+            applySortingToData();
+            renderTable();
+        }
+
+        function sortRanking(columnKey) {
+            if (rankingSortColumn === columnKey) {
+                rankingSortDirection = rankingSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                rankingSortColumn = columnKey;
+                rankingSortDirection = 'desc';
+            }
+            updateSortIcons('rank-icon-', rankingSortColumn, rankingSortDirection, ['origName', 'total', 'ganhos', 'perdidos', 'pipeline', 'convRate']);
+            renderRankingTable();
+        }
+
+        function updateSortIcons(prefix, activeCol, direction, allCols) {
+            allCols.forEach(col => {
+                const el = document.getElementById(`${prefix}${col}`);
+                if (el) {
+                    if (col === activeCol) {
+                        el.innerText = direction === 'asc' ? '↑' : '↓';
+                        el.className = "text-indigo-600 font-bold";
+                    } else {
+                        el.innerText = '↕';
+                        el.className = "text-slate-400 font-normal";
+                    }
+                }
+            });
+        }
+
+        function applySortingToData() {
+            if (!currentSortColumn) return;
+
+            filteredData.sort((a, b) => {
+                let valA = a[currentSortColumn];
+                let valB = b[currentSortColumn];
+
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+                }
+
+                valA = String(valA || '').toLowerCase();
+                valB = String(valB || '').toLowerCase();
+
+                if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
+                return 0;
             });
         }
 
