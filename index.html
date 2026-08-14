@@ -810,15 +810,6 @@
             }
         }
 
-                    if (confirm("Deseja restaurar a planilha padrão oficial?")) {
-                localStorage.removeItem(LOCAL_STORAGE_KEY);
-                loadDefaultDataset();
-                populateDropdowns();
-                resetAllFilters();
-                alert("Planilha padrão restaurada com sucesso!");
-            }
-        }
-
         async function deleteSavedPlanilha() {
             if (!isAdminLoggedIn) {
                 alert("Operação permitida apenas para o Administrador.");
