@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BI Comercial - Ranking de Vendedores, Origens & Filtros Avançados</title>
+    <title>BI Comercial - Painel de Controle & Área de Admin</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS for Excel/CSV parsing -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2pdf.js for faithful PDF rendering of the entire screen -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -34,43 +36,89 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+        /* Style for clean PDF generation */
+        .pdf-export-mode {
+            background-color: #ffffff !important;
+            padding: 10px !important;
+        }
+        .pdf-export-mode .no-pdf {
+            display: none !important;
+        }
     </style>
 </head>
-<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+<body class="text-slate-800 antialiased min-h-screen flex flex-col" id="exportable-area">
 
     <!-- Header / Navbar -->
     <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div class="p-2 bg-indigo-600 rounded-lg">
-                    <i data-lucide="trophy" class="w-6 h-6 text-white"></i>
+                    <i data-lucide="bar-chart-3" class="w-6 h-6 text-white"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold leading-tight">BI Comercial</h1>
-                    <p class="text-xs text-slate-400">Rankings, Evolução Temporal & Filtros Avançados</p>
+                    <h1 class="text-lg font-bold leading-tight flex items-center space-x-2">
+                        <span>BI Comercial</span>
+                        <span id="admin-badge" class="hidden text-[10px] bg-amber-500 text-slate-950 font-extrabold px-2 py-0.5 rounded-full uppercase">Modo Admin</span>
+                    </h1>
+                    <p class="text-xs text-slate-400" id="header-subtitle">Visualização de Dados e Indicadores Comerciais</p>
                 </div>
             </div>
             
-            <!-- Excel Upload Button -->
-            <div class="flex items-center space-x-3">
-                <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-sm">
-                    <i data-lucide="upload" class="w-4 h-4"></i>
-                    <span>Subir Planilha (.xlsx/.csv)</span>
-                </label>
-                <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
-                
-                <button onclick="clearDashboard()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition border border-slate-700 flex items-center space-x-1" title="Limpar Dados">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <!-- Action Controls -->
+            <div class="flex items-center space-x-3 no-pdf">
+                <!-- PDF Export Button (Available to Standard Users) -->
+                <button onclick="exportToPDF()" id="pdf-export-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-sm" title="Exportar Tela em PDF">
+                    <i data-lucide="file-down" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Exportar PDF</span>
+                </button>
+
+                <!-- Admin Toggle Button -->
+                <button onclick="toggleAdminAuth()" id="admin-toggle-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3.5 py-2 rounded-lg text-sm font-medium transition border border-slate-700 flex items-center space-x-2">
+                    <i data-lucide="shield-lock" class="w-4 h-4 text-amber-400"></i>
+                    <span id="admin-toggle-text" class="hidden sm:inline">Área Admin</span>
                 </button>
             </div>
         </div>
     </header>
 
+    <!-- ADMIN MANAGEMENT DRAWER (ONLY VISIBLE IN ADMIN MODE) -->
+    <div id="admin-panel" class="hidden bg-slate-900 border-b border-slate-800 text-slate-200 py-4 px-4 sm:px-6 lg:px-8 space-y-4 no-pdf">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-lg">
+                    <i data-lucide="folder-git2" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Gerenciamento de Planilhas Persistentes</h3>
+                    <p class="text-xs text-slate-400" id="admin-status-text">Faça o upload da planilha oficial que ficará salva para todos os usuários comuns.</p>
+                </div>
+            </div>
+
+            <!-- Admin Upload / Update / Delete Controls -->
+            <div class="flex flex-wrap items-center gap-3">
+                <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Subir / Atualizar Planilha Oficial</span>
+                </label>
+                <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
+
+                <button onclick="deleteSavedPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1.5">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Excluir Planilha Salva</span>
+                </button>
+
+                <button onclick="logoutAdmin()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg text-xs font-medium transition">
+                    Sair do Admin
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         <!-- Controls Bar / Global Filters -->
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 space-y-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 space-y-4 no-pdf">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div class="flex items-center space-x-2 text-slate-700 font-semibold text-sm">
                     <i data-lucide="filter" class="w-4 h-4 text-indigo-600"></i>
@@ -135,24 +183,24 @@
             </div>
         </div>
 
-        <!-- Empty State Alert (Before upload) -->
+        <!-- Empty State Alert (Visible to standard users when no admin spreadsheet is saved) -->
         <div id="empty-state" class="bg-indigo-50/60 border-2 border-dashed border-indigo-200 rounded-2xl p-12 text-center space-y-4">
             <div class="inline-flex p-4 bg-indigo-100 text-indigo-600 rounded-2xl mb-2">
                 <i data-lucide="file-spreadsheet" class="w-10 h-10"></i>
             </div>
-            <h2 class="text-xl font-bold text-slate-800">Seu BI está limpo e pronto!</h2>
+            <h2 class="text-xl font-bold text-slate-800">Nenhum relatório comercial disponível no momento</h2>
             <p class="text-sm text-slate-500 max-w-md mx-auto">
-                Faça o upload da sua planilha em <strong>.xlsx</strong> ou <strong>.csv</strong> no botão verde acima para carregar o Dashboard.
+                O administrador ainda não publicou uma planilha oficial. Assim que o administrador subir o arquivo, o relatório estará disponível aqui para consulta.
             </p>
             <div class="pt-2">
-                <label for="excel-upload" class="cursor-pointer inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-2.5 rounded-xl shadow-md transition">
-                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-                    <span>Carregar Planilha Agora</span>
-                </label>
+                <button onclick="toggleAdminAuth()" class="inline-flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i>
+                    <span>Acessar como Administrador</span>
+                </button>
             </div>
         </div>
 
-        <!-- Dashboard Content (Visible after upload) -->
+        <!-- Dashboard Content (Visible after admin uploads spreadsheet) -->
         <div id="dashboard-content" class="space-y-6 hidden">
             <!-- KPI Summary Cards (CLICKABLE FOR DRILLDOWN DETAILS) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -233,7 +281,7 @@
                 </div>
             </div>
 
-            <!-- TWO RANKINGS SIDE BY SIDE (VENDEDORES & ORIGENS) - LAYOUT OPTIMIZED -->
+            <!-- TWO RANKINGS SIDE BY SIDE (VENDEDORES & ORIGENS) -->
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 
                 <!-- 1. RANKING COMPLETO DE VENDEDORES -->
@@ -283,7 +331,7 @@
                                             <span id="seller-icon-conv" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th class="px-2 py-2 text-center w-12">Ação</th>
+                                    <th class="px-2 py-2 text-center w-12 no-pdf">Ação</th>
                                 </tr>
                             </thead>
                             <tbody id="seller-ranking-body" class="divide-y divide-slate-100 font-medium">
@@ -303,7 +351,7 @@
                             </h2>
                             <p class="text-xs text-slate-400 mt-0.5">Exibindo os principais canais de entrada</p>
                         </div>
-                        <button id="toggle-origin-limit-btn" onclick="toggleOriginLimit()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 transition">
+                        <button id="toggle-origin-limit-btn" onclick="toggleOriginLimit()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 transition no-pdf">
                             Ver Todos
                         </button>
                     </div>
@@ -343,7 +391,7 @@
                                             <span id="rank-icon-convRate" class="text-slate-400">↕</span>
                                         </div>
                                     </th>
-                                    <th class="px-2 py-2 text-center w-12">Ação</th>
+                                    <th class="px-2 py-2 text-center w-12 no-pdf">Ação</th>
                                 </tr>
                             </thead>
                             <tbody id="ranking-table-body" class="divide-y divide-slate-100 font-medium">
@@ -391,13 +439,13 @@
                         <i data-lucide="table" class="w-5 h-5 text-indigo-600"></i>
                         <h2 class="text-base font-semibold text-slate-800">Oportunidades em Detalhe</h2>
                     </div>
-                    <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-3 no-pdf">
                         <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Buscar por Título, Cliente, Chave..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 w-64">
                     </div>
                 </div>
 
                 <!-- Inline Filters specifically for Table Columns -->
-                <div class="px-5 grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div class="px-5 grid grid-cols-1 sm:grid-cols-4 gap-3 no-pdf">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filtrar por Etapa</label>
                         <select id="tbl-filter-etapa" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
@@ -471,7 +519,7 @@
                 </div>
 
                 <!-- Pagination -->
-                <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 no-pdf">
                     <span id="pagination-info">Mostrando 0 de 0 resultados</span>
                     <div class="flex items-center space-x-2">
                         <button id="btn-prev" onclick="changePage(-1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium disabled:opacity-40 transition">Anterior</button>
@@ -534,31 +582,52 @@
         </div>
     </div>
 
+    <!-- Admin Password Prompt Modal -->
+    <div id="admin-auth-modal" class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">
+            <div class="inline-flex p-3 bg-amber-100 text-amber-600 rounded-2xl">
+                <i data-lucide="lock" class="w-8 h-8"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Autenticação do Administrador</h3>
+                <p class="text-xs text-slate-500 mt-1">Digite a senha para acessar as permissões de edição e gerenciamento de planilhas.</p>
+            </div>
+            <div>
+                <input type="password" id="admin-pass-input" placeholder="Senha do Administrador" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-center font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <p id="admin-pass-error" class="text-xs text-rose-600 font-semibold mt-1.5 hidden">Senha incorreta. Tente novamente.</p>
+            </div>
+            <div class="flex items-center space-x-2 pt-2">
+                <button onclick="closeAdminAuthModal()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-xl text-xs transition">Cancelar</button>
+                <button onclick="verifyAdminPass()" class="w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-xl text-xs transition">Entrar</button>
+            </div>
+            <p class="text-[10px] text-slate-400 pt-1">Senha padrão de demonstração: <strong>admin123</strong></p>
+        </div>
+    </div>
+
     <!-- Footer -->
-    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 no-pdf">
         <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
-            BI Comercial Interativo — Módulo Avançado com Ordenação & Rankings
+            BI Comercial Interativo — Com Persistência de Planilha Admin & Exportação FIEL em PDF
         </div>
     </footer>
 
     <!-- Script Application -->
     <script>
+        const LOCAL_STORAGE_KEY = 'bi_comercial_persisted_data';
+        const ADMIN_PASS = 'admin123'; // Admin Password
+
         let rawData = [];
         let filteredData = [];
-        let selectedOrigins = []; // Array for multiselect
+        let selectedOrigins = [];
+        let isAdminLoggedIn = false;
 
-        // Origin ranking display limit state (Top 10 vs All)
         let showAllOrigins = false;
-
-        // Sorting State for Main Detailed Table
         let currentSortColumn = 'data_iso';
         let currentSortDirection = 'desc';
 
-        // Sorting State for Origin Ranking Table
         let rankingSortColumn = 'total';
         let rankingSortDirection = 'desc';
 
-        // Sorting State for Seller Ranking Table
         let sellerSortColumn = 'total';
         let sellerSortDirection = 'desc';
         
@@ -574,6 +643,9 @@
             lucide.createIcons();
             setupFileUpload();
 
+            // Load persisted spreadsheet data if available
+            loadPersistedSpreadsheet();
+
             document.addEventListener('click', (e) => {
                 const btn = document.getElementById('origin-multiselect-btn');
                 const menu = document.getElementById('origin-dropdown-menu');
@@ -582,6 +654,135 @@
                 }
             });
         });
+
+        // LOAD SAVED SPREADSHEET FROM LOCALSTORAGE
+        function loadPersistedSpreadsheet() {
+            try {
+                const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (saved) {
+                    rawData = JSON.parse(saved);
+                    if (rawData && rawData.length > 0) {
+                        document.getElementById('empty-state').classList.add('hidden');
+                        document.getElementById('dashboard-content').classList.remove('hidden');
+                        populateDropdowns();
+                        applyFilters();
+                    }
+                } else {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    document.getElementById('dashboard-content').classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("Erro ao carregar planilha salva:", err);
+            }
+        }
+
+        // SAVE SPREADSHEET TO LOCALSTORAGE (ADMIN ONLY)
+        function saveSpreadsheetToStorage(data) {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+            } catch (err) {
+                console.error("Erro ao salvar dados no navegador:", err);
+                alert("Atenção: A planilha é muito grande para o armazenamento local do navegador, mas foi carregada para esta sessão.");
+            }
+        }
+
+        // DELETE SAVED SPREADSHEET (ADMIN ONLY)
+        function deleteSavedPlanilha() {
+            if (!isAdminLoggedIn) {
+                alert("Operação permitida apenas para o Administrador.");
+                return;
+            }
+
+            if (confirm("Tem certeza que deseja excluir a planilha salva? Todos os usuários padrão perderão o acesso até que uma nova planilha seja enviada.")) {
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+                clearDashboard();
+                alert("Planilha oficial excluída com sucesso.");
+            }
+        }
+
+        // ADMIN AUTHENTICATION
+        function toggleAdminAuth() {
+            if (isAdminLoggedIn) {
+                // If already logged in, scroll to admin panel
+                document.getElementById('admin-panel').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                document.getElementById('admin-pass-error').classList.add('hidden');
+                document.getElementById('admin-pass-input').value = '';
+                document.getElementById('admin-auth-modal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('admin-pass-input').focus(), 100);
+            }
+        }
+
+        function closeAdminAuthModal() {
+            document.getElementById('admin-auth-modal').classList.add('hidden');
+        }
+
+        function verifyAdminPass() {
+            const pass = document.getElementById('admin-pass-input').value;
+            if (pass === ADMIN_PASS) {
+                isAdminLoggedIn = true;
+                closeAdminAuthModal();
+                updateAdminUIState();
+                alert("Autenticado como Administrador! Você agora pode subir, atualizar ou excluir a planilha oficial.");
+            } else {
+                document.getElementById('admin-pass-error').classList.remove('hidden');
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            updateAdminUIState();
+            alert("Sessão de Administrador encerrada.");
+        }
+
+        function updateAdminUIState() {
+            const adminPanel = document.getElementById('admin-panel');
+            const adminBadge = document.getElementById('admin-badge');
+            const toggleBtnText = document.getElementById('admin-toggle-text');
+
+            if (isAdminLoggedIn) {
+                adminPanel.classList.remove('hidden');
+                adminBadge.classList.remove('hidden');
+                toggleBtnText.innerText = "Painel Admin Ativo";
+            } else {
+                adminPanel.classList.add('hidden');
+                adminBadge.classList.add('hidden');
+                toggleBtnText.innerText = "Área Admin";
+            }
+        }
+
+        // FAITHFUL FULL SCREEN PDF EXPORT
+        function exportToPDF() {
+            const btn = document.getElementById('pdf-export-btn');
+            const originalText = btn.innerHTML;
+            btn.innerText = "Gerando PDF...";
+            btn.disabled = true;
+
+            const element = document.body;
+            
+            // Add PDF temporary class
+            element.classList.add('pdf-export-mode');
+
+            const opt = {
+                margin:       [0.3, 0.3, 0.3, 0.3],
+                filename:     `BI_Comercial_Relatorio_${new Date().toISOString().split('T')[0]}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.remove('pdf-export-mode');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error("Erro ao gerar PDF:", err);
+                element.classList.remove('pdf-export-mode');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert("Ocorreu um erro ao gerar o PDF. Tente novamente.");
+            });
+        }
 
         // Smart Normalization Function for Origem/Indicação
         function normalizeOrigem(val) {
@@ -630,6 +831,13 @@
         function setupFileUpload() {
             const uploadInput = document.getElementById('excel-upload');
             uploadInput.addEventListener('change', (e) => {
+                if (!isAdminLoggedIn) {
+                    alert("Atenção: Apenas o Administrador pode subir ou atualizar planilhas oficiais.");
+                    uploadInput.value = '';
+                    toggleAdminAuth();
+                    return;
+                }
+
                 const file = e.target.files[0];
                 if (!file) return;
 
@@ -688,11 +896,16 @@
                             };
                         });
 
+                        // Persist saved data in browser so standard users see it automatically
+                        saveSpreadsheetToStorage(rawData);
+
                         document.getElementById('empty-state').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('hidden');
 
                         populateDropdowns();
                         applyFilters();
+
+                        alert(`Sucesso! ${rawData.length} registros foram salvos e publicados como planilha oficial.`);
 
                     } catch (err) {
                         console.error(err);
@@ -714,7 +927,6 @@
         }
 
         function populateDropdowns() {
-            // Global Vendedores
             const users = [...new Set(rawData.map(d => d.usuario))].sort();
             const userSelect = document.getElementById('filter-user');
             userSelect.innerHTML = '<option value="all">Todos os Vendedores</option>';
@@ -722,7 +934,6 @@
                 if (u) userSelect.innerHTML += `<option value="${u}">${u}</option>`;
             });
 
-            // Populate In-Table Specific Filter Dropdowns
             const tblUserSelect = document.getElementById('tbl-filter-user');
             tblUserSelect.innerHTML = '<option value="all">Todos os Vendedores</option>';
             users.forEach(u => {
@@ -829,7 +1040,6 @@
             const userVal = document.getElementById('filter-user').value;
             const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
 
-            // In-Table Filters
             const tblEtapa = document.getElementById('tbl-filter-etapa').value;
             const tblUser = document.getElementById('tbl-filter-user').value;
             const tblOrigem = document.getElementById('tbl-filter-origem').value;
@@ -844,7 +1054,6 @@
                 if (userVal !== 'all' && d.usuario !== userVal) return false;
                 if (!selectedOrigins.includes(d.indicacao)) return false;
 
-                // In-table specific filter overrides
                 if (tblEtapa !== 'all' && d.etapa !== tblEtapa) return false;
                 if (tblUser !== 'all' && d.usuario !== tblUser) return false;
                 if (tblOrigem !== 'all' && d.indicacao !== tblOrigem) return false;
@@ -901,7 +1110,6 @@
             document.getElementById('record-count').innerText = `${total} registros filtrados`;
         }
 
-        // DRILLDOWN FOR KPI CARDS
         function drilldownKPI(type) {
             let items = [];
             let title = "";
@@ -932,7 +1140,6 @@
             openModal(title, subtitle, items);
         }
 
-        // RANKING DE VENDEDORES (MAIOR > MENOR)
         function renderSellerRanking() {
             const tbody = document.getElementById('seller-ranking-body');
             tbody.innerHTML = '';
@@ -953,7 +1160,6 @@
                 return { user, total: stats.total, ganhos: stats.ganhos, perdidos: stats.perdidos, conv, stats };
             });
 
-            // Sort sellers dynamically
             sellerList.sort((a, b) => {
                 let valA = a[sellerSortColumn];
                 let valB = b[sellerSortColumn];
@@ -991,7 +1197,7 @@
                             ${item.conv}%
                         </span>
                     </td>
-                    <td class="px-2 py-2 text-center whitespace-nowrap">
+                    <td class="px-2 py-2 text-center whitespace-nowrap no-pdf">
                         <button onclick="drilldownSeller('${item.user}')" title="Ver Detalhes" class="p-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition inline-flex items-center justify-center">
                             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                         </button>
@@ -999,6 +1205,8 @@
                 `;
                 tbody.appendChild(row);
             });
+            
+            lucide.createIcons();
         }
 
         function sortSellerRanking(columnKey) {
@@ -1017,7 +1225,6 @@
             openModal(`Vendedor: ${userName}`, `${items.length} oportunidades sob responsabilidade de ${userName}`, items);
         }
 
-        // RANKING DE ORIGENS (TOP 10 + TOGGLE VER TODOS)
         function toggleOriginLimit() {
             showAllOrigins = !showAllOrigins;
             const btn = document.getElementById('toggle-origin-limit-btn');
@@ -1066,7 +1273,6 @@
                 return;
             }
 
-            // Limit to top 10 if showAllOrigins is false
             const displayList = showAllOrigins ? rankingList : rankingList.slice(0, 10);
 
             displayList.forEach((item, idx) => {
@@ -1088,7 +1294,7 @@
                             ${item.convRate}%
                         </span>
                     </td>
-                    <td class="px-2 py-2 text-center whitespace-nowrap">
+                    <td class="px-2 py-2 text-center whitespace-nowrap no-pdf">
                         <button onclick="drilldownOrigin('${item.origName}')" title="Ver Detalhes" class="p-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition inline-flex items-center justify-center">
                             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                         </button>
@@ -1096,6 +1302,8 @@
                 `;
                 tbody.appendChild(row);
             });
+
+            lucide.createIcons();
         }
 
         function sortRanking(columnKey) {
@@ -1115,7 +1323,6 @@
         }
 
         function renderCharts() {
-            // 1. Chart Monthly Trend (Line & Bar combined)
             const monthMap = {};
             filteredData.forEach(d => {
                 const ym = d.year_month || 'Outros';
@@ -1201,7 +1408,6 @@
                 }
             });
 
-            // 2. Chart Performance por Vendedor
             const userMap = {};
             filteredData.forEach(d => {
                 if (!userMap[d.usuario]) userMap[d.usuario] = { ganho: 0, perdido: 0 };
@@ -1245,7 +1451,6 @@
                 }
             });
 
-            // 3. Chart Funil de Vendas / Etapas
             const stageMap = {};
             filteredData.forEach(d => {
                 stageMap[d.etapa] = (stageMap[d.etapa] || 0) + 1;
@@ -1384,7 +1589,6 @@
             renderTable();
         }
 
-        // Modal Functions
         function openModal(title, subtitle, items) {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-subtitle').innerText = subtitle;
