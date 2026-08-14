@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BI Comercial - Sincronizado Supabase & Admin</title>
+    <title>BI Comercial - Sincronizado Admin & Usuário</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
@@ -715,32 +715,84 @@
         }
 
         // INIT DATASET WITH PERSISTENCE & DEFENSIVE FALLBACK
-        function initDataset() {
-            try {
-                const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    if (parsed && parsed.length > 0) {
-                        rawData = parsed.map(item => ({
-                            ...item,
-                            indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao)
+        async function initDataset() {
+            let loadedFromSupabase = false;
+            let importTimestamp = null;
+
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('comercial_deals')
+                        .select('*')
+                        .order('data_iso', { ascending: false });
+
+                    if (!error && data && data.length > 0) {
+                        rawData = data.map(item => ({
+                            chave: item.id || item.chave,
+                            titulo: item.titulo || '',
+                            data: item.data_raw || item.data || '',
+                            data_iso: item.data_iso || '',
+                            year_month: item.year_month || '',
+                            usuario: item.usuario || 'Não Atribuído',
+                            etapa: item.etapa || 'Sem Etapa',
+                            indicacao_raw: item.indicacao_raw || 'Não Informada',
+                            indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao),
+                            razao: item.razao || item.titulo || ''
                         }));
-                    } else {
-                        loadDefaultDataset();
+                        if (data[0] && data[0].created_at) {
+                            const d = new Date(data[0].created_at);
+                            importTimestamp = d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                        }
+                        loadedFromSupabase = true;
                     }
-                } else {
-                    loadDefaultDataset();
+                } catch (err) {
+                    console.warn("Consulta ao Supabase falhou, verificando localStorage:", err);
                 }
-            } catch (err) {
-                console.error("Erro ao carregar do localStorage, usando padrão:", err);
-                loadDefaultDataset();
             }
 
-            document.getElementById('empty-state').classList.add('hidden');
-            document.getElementById('dashboard-content').classList.remove('hidden');
+            if (!loadedFromSupabase) {
+                try {
+                    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+                    const savedTime = localStorage.getItem(LOCAL_STORAGE_META_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed && parsed.length > 0) {
+                            rawData = parsed.map(item => ({
+                                ...item,
+                                indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao)
+                            }));
+                            importTimestamp = savedTime || null;
+                        } else {
+                            rawData = [];
+                        }
+                    } else {
+                        rawData = [];
+                    }
+                } catch (err) {
+                    console.error("Erro ao carregar do localStorage:", err);
+                    rawData = [];
+                }
+            }
 
-            populateDropdowns();
-            resetAllFilters();
+            if (rawData.length > 0) {
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+
+                if (importTimestamp) {
+                    document.getElementById('import-time-val').innerText = importTimestamp;
+                    document.getElementById('import-time-badge').classList.remove('hidden');
+                } else {
+                    document.getElementById('import-time-badge').classList.add('hidden');
+                }
+
+                populateDropdowns();
+                resetAllFilters();
+            } else {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('dashboard-content').classList.add('hidden');
+                document.getElementById('import-time-badge').classList.add('hidden');
+                document.getElementById('record-count').innerText = "Aguardando planilha...";
+            }
         }
 
         function loadDefaultDataset() {
@@ -758,8 +810,7 @@
             }
         }
 
-        
-            if (confirm("Deseja restaurar a planilha padrão oficial?")) {
+                    if (confirm("Deseja restaurar a planilha padrão oficial?")) {
                 localStorage.removeItem(LOCAL_STORAGE_KEY);
                 loadDefaultDataset();
                 populateDropdowns();
@@ -946,6 +997,10 @@
                             };
                         });
 
+                        const nowStr = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                        localStorage.setItem(LOCAL_STORAGE_META_KEY, nowStr);
+                        document.getElementById('import-time-val').innerText = nowStr;
+                        document.getElementById('import-time-badge').classList.remove('hidden');
                         saveSpreadsheetToStorage(rawData);
 
                         document.getElementById('empty-state').classList.add('hidden');
