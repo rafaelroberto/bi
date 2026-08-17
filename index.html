@@ -424,6 +424,47 @@
                 </div>
             </div>
 
+            <!-- RANKING DE MOTIVOS DE PERDA (GRÁFICO DE BARRAS & TABELA) -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
+                            <span>Ranking de Motivos de Perda das Oportunidades</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Análise das principais razões de recusa/desistência no funil</p>
+                    </div>
+                    <span class="text-xs text-rose-700 bg-rose-50 font-semibold px-2.5 py-1 rounded-full border border-rose-200">
+                        Oportunidades Perdidas
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    <!-- Gráfico de Barras de Motivos -->
+                    <div class="h-64 relative">
+                        <canvas id="chart-motivos-perda"></canvas>
+                    </div>
+
+                    <!-- Tabela de Motivos -->
+                    <div class="overflow-x-auto custom-scrollbar max-h-64 overflow-y-auto">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2 text-center w-8">Pos</th>
+                                    <th class="px-3 py-2">Motivo de Perda</th>
+                                    <th class="px-3 py-2 text-center">Quantidade</th>
+                                    <th class="px-3 py-2 text-center">% do Total Perdido</th>
+                                    <th class="px-3 py-2 text-right">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="motivos-ranking-body" class="divide-y divide-slate-100 font-medium">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- Gráficos de Vendedores e Funil -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
@@ -529,6 +570,12 @@
                                         <span id="sort-icon-indicacao" class="text-slate-400">↕</span>
                                     </div>
                                 </th>
+                                <th onclick="sortTable('motivo_perda')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600 transition">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Motivo de Perda</span>
+                                        <span id="sort-icon-motivo_perda" class="text-slate-400">↕</span>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-slate-100 font-medium">
@@ -580,6 +627,8 @@
                                 <th class="px-3 py-2.5">Usuário</th>
                                 <th class="px-3 py-2.5">Etapa</th>
                                 <th class="px-3 py-2.5">Origem (Texto Original)</th>
+                                <th class="px-3 py-2.5">Motivo de Perda</th>
+                                <th class="px-3 py-2.5">Data de Perda</th>
                             </tr>
                         </thead>
                         <tbody id="modal-table-body" class="divide-y divide-slate-100 font-medium">
@@ -663,6 +712,7 @@
         let chartMonthlyTrend = null;
         let chartUser = null;
         let chartStages = null;
+        let chartMotivosPerda = null;
 
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();
@@ -762,7 +812,9 @@
                             etapa: item.etapa || 'Sem Etapa',
                             indicacao_raw: item.indicacao_raw || 'Não Informada',
                             indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario),
-                            razao: item.razao || item.titulo || ''
+                            razao: item.razao || item.titulo || '',
+                            motivo_perda: item.motivo_perda || '',
+                            data_perda: item.data_perda || ''
                         }));
                         if (data[0] && data[0].created_at) {
                             const d = new Date(data[0].created_at);
@@ -846,7 +898,9 @@
                     usuario: item.usuario,
                     etapa: item.etapa,
                     indicacao_raw: item.indicacao_raw,
-                    razao: item.razao
+                    razao: item.razao,
+                    motivo_perda: item.motivo_perda || null,
+                    data_perda: item.data_perda || null
                 }));
 
                 await supabaseClient.from('comercial_deals').insert(recordsToInsert);
@@ -1021,6 +1075,9 @@
                                 }
                             }
 
+                            const motivoPerda = row['Motivo de Perda'] || row['Motivo de perda'] || row['Motivo Perda'] || row['Motivo da Perda'] || row['Motivo'] || row['Motivo Perca'] || '';
+                            const dataPerda = row['Data de Perda'] || row['Data Perda'] || row['Data de pátio/perda'] || row['Data Fechamento'] || '';
+
                             return {
                                 chave: chave,
                                 titulo: String(titulo).trim(),
@@ -1031,7 +1088,9 @@
                                 etapa: String(etapa).trim(),
                                 indicacao_raw: String(indicacaoRaw).trim(),
                                 indicacao: origNorm,
-                                razao: String(razao).trim()
+                                razao: String(razao).trim(),
+                                motivo_perda: String(motivoPerda).trim(),
+                                data_perda: String(dataPerda).trim()
                             };
                         });
 
@@ -1274,6 +1333,7 @@
             updateKPIs();
             renderSellerRanking();
             renderRankingTable();
+            renderMotivosPerda();
             renderCharts();
             renderTable();
         }
@@ -1511,6 +1571,99 @@
             openModal(`Origem: ${origName}`, `${items.length} registros unificados nesta origem`, items);
         }
 
+        
+        function renderMotivosPerda() {
+            const tbody = document.getElementById('motivos-ranking-body');
+            tbody.innerHTML = '';
+
+            const perdidosList = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
+            const totalPerdidos = perdidosList.length;
+
+            const motivosMap = {};
+            perdidosList.forEach(d => {
+                const mot = d.motivo_perda || 'Não informado';
+                motivosMap[mot] = (motivosMap[mot] || 0) + 1;
+            });
+
+            const sortedMotivos = Object.entries(motivosMap).sort((a,b) => b[1] - a[1]);
+
+            if (sortedMotivos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Nenhum registro de perda encontrado nos filtros atuais.</td></tr>`;
+                if (chartMotivosPerda) chartMotivosPerda.destroy();
+                return;
+            }
+
+            // Render Table
+            sortedMotivos.forEach(([motivo, count], idx) => {
+                const pct = totalPerdidos > 0 ? ((count / totalPerdidos) * 100).toFixed(1) : 0;
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition';
+                row.innerHTML = `
+                    <td class="px-3 py-2 text-center font-bold text-slate-500">#${idx + 1}</td>
+                    <td class="px-3 py-2 font-semibold text-slate-800">${motivo}</td>
+                    <td class="px-3 py-2 text-center font-bold text-rose-600">${count}</td>
+                    <td class="px-3 py-2 text-center">
+                        <span class="px-2 py-0.5 bg-rose-50 text-rose-700 rounded-full font-bold border border-rose-100">
+                            ${pct}%
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap">
+                        <button onclick="drilldownMotivo('${motivo.replace(/'/g, "\\'")}')" title="Ver Oportunidades" class="p-1 bg-rose-600 hover:bg-rose-500 text-white rounded transition inline-flex items-center justify-center">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Render Bar Chart
+            const topMotivos = sortedMotivos.slice(0, 7);
+            const labels = topMotivos.map(m => m[0]);
+            const dataCounts = topMotivos.map(m => m[1]);
+
+            if (chartMotivosPerda) chartMotivosPerda.destroy();
+            const ctxMotivos = document.getElementById('chart-motivos-perda').getContext('2d');
+            chartMotivosPerda = new Chart(ctxMotivos, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Oportunidades Perdidas',
+                        data: dataCounts,
+                        backgroundColor: '#f43f5e',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (evt, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const elem = activeElements[0];
+                            const motivoClicked = labels[elem.index];
+                            drilldownMotivo(motivoClicked);
+                        }
+                    },
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
+                }
+            });
+
+            lucide.createIcons();
+        }
+
+        function drilldownMotivo(motivoName) {
+            let items = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
+            if (motivoName === 'Não informado') {
+                items = items.filter(d => !d.motivo_perda || d.motivo_perda === 'Não informado');
+            } else {
+                items = items.filter(d => d.motivo_perda === motivoName);
+            }
+            openModal(`Motivo de Perda: ${motivoName}`, `${items.length} oportunidades perdidas por esta razão`, items);
+        }
+
         function renderCharts() {
             const monthMap = {};
             filteredData.forEach(d => {
@@ -1686,7 +1839,7 @@
                 currentSortColumn = columnKey;
                 currentSortDirection = 'asc';
             }
-            updateSortIcons('sort-icon-', currentSortColumn, currentSortDirection, ['chave', 'razao', 'data_iso', 'usuario', 'etapa', 'indicacao']);
+            updateSortIcons('sort-icon-', currentSortColumn, currentSortDirection, ['chave', 'razao', 'data_iso', 'usuario', 'etapa', 'indicacao', 'motivo_perda']);
             applySortingToData();
             renderTable();
         }
@@ -1761,6 +1914,7 @@
                             </span>
                         </td>
                         <td class="px-4 py-3 font-semibold text-indigo-600">${item.indicacao}</td>
+                        <td class="px-4 py-3 text-slate-500">${item.etapa.toLowerCase() === 'perdido' ? (item.motivo_perda || '<span class="text-slate-300 font-normal">Não informado</span>') : '<span class="text-slate-300">-</span>'}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -1809,6 +1963,8 @@
                             </span>
                         </td>
                         <td class="px-3 py-2 text-slate-500 italic">${item.indicacao_raw || item.indicacao}</td>
+                        <td class="px-3 py-2 font-medium text-rose-600">${item.etapa.toLowerCase() === 'perdido' ? (item.motivo_perda || 'Não informado') : '-'}</td>
+                        <td class="px-3 py-2 text-slate-500 whitespace-nowrap">${item.etapa.toLowerCase() === 'perdido' ? (item.data_perda || item.data || '-') : '-'}</td>
                     `;
                     mtbody.appendChild(row);
                 });
