@@ -187,12 +187,18 @@
                     </button>
 
                     <!-- Multi-select Popup -->
-                    <div id="origin-dropdown-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-2 text-xs font-medium">
-                            <button onclick="selectAllOrigins(true)" type="button" class="text-indigo-600 hover:text-indigo-800">Selecionar Todos</button>
-                            <button onclick="selectAllOrigins(false)" type="button" class="text-slate-400 hover:text-slate-600">Limpar Seleção</button>
+                    <div id="origin-dropdown-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2 max-h-72 flex flex-col">
+                        <div class="space-y-2 pb-2 border-b border-slate-100">
+                            <!-- Campo de Busca de Origem / Vendedor -->
+                            <div class="relative">
+                                <input type="text" id="origin-search-input" onkeyup="filterOriginCheckboxes(this.value)" placeholder="🔍 Buscar origem / pessoa..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+                            </div>
+                            <div class="flex items-center justify-between text-xs font-medium">
+                                <button onclick="selectAllOrigins(true)" type="button" class="text-indigo-600 hover:text-indigo-800">Selecionar Todos</button>
+                                <button onclick="selectAllOrigins(false)" type="button" class="text-slate-400 hover:text-slate-600">Limpar Seleção</button>
+                            </div>
                         </div>
-                        <div id="origin-checkbox-list" class="space-y-1.5 text-xs">
+                        <div id="origin-checkbox-list" class="space-y-1.5 text-xs overflow-y-auto custom-scrollbar flex-1 max-h-48">
                             <!-- Populated dynamically -->
                         </div>
                     </div>
@@ -686,13 +692,17 @@
         }
 
         // Função de Normalização de Origens
-        function normalizeOrigem(val) {
-            if (!val || val === 'nan' || val === 'null' || String(val).trim() === '') {
-                return "Não Informada";
+        function normalizeOrigem(val, user) {
+            if (!val || val === 'nan' || val === 'null' || String(val).trim() === '' || String(val).trim().toLowerCase() === 'não informada' || String(val).trim().toLowerCase() === 'não informado') {
+                return user && user !== 'Não Atribuído' ? user : "Não Informada";
             }
 
             let s = String(val).replace(/\s+/g, ' ').trim();
             let sLower = s.toLowerCase();
+
+            if (sLower === 'não informada' || sLower === 'não informado') {
+                return user && user !== 'Não Atribuído' ? user : "Não Informada";
+            }
 
             if (sLower.includes('mylead') || sLower.includes('my lead') || sLower.includes('my-lead')) return "My Lead";
             if (sLower.includes('site') || sLower.includes('ia') || sLower.includes('chat') || sLower.includes('formul')) {
@@ -751,7 +761,7 @@
                             usuario: item.usuario || 'Não Atribuído',
                             etapa: item.etapa || 'Sem Etapa',
                             indicacao_raw: item.indicacao_raw || 'Não Informada',
-                            indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao),
+                            indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario),
                             razao: item.razao || item.titulo || ''
                         }));
                         if (data[0] && data[0].created_at) {
@@ -774,7 +784,7 @@
                         if (parsed && parsed.length > 0) {
                             rawData = parsed.map(item => ({
                                 ...item,
-                                indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao)
+                                indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario)
                             }));
                             importTimestamp = savedTime || "Salvo Localmente";
                         } else {
@@ -993,7 +1003,7 @@
                             const indicacaoRaw = row['Indicação'] || row['Indicacao'] || row['Origem'] || 'Não Informada';
                             const razao = row['Razão Social'] || row['Razao Social'] || row['Cliente'] || titulo;
 
-                            const origNorm = normalizeOrigem(indicacaoRaw);
+                            const origNorm = normalizeOrigem(indicacaoRaw, String(usuario).trim());
 
                             let dataIso = '';
                             let yearMonth = '';
@@ -1080,6 +1090,21 @@
             selectedOrigins = [...origensNorm];
             renderOriginCheckboxes(origensNorm);
             updateOriginSelectLabel();
+        }
+
+        
+        function filterOriginCheckboxes(query) {
+            const q = query.toLowerCase().trim();
+            const listContainer = document.getElementById('origin-checkbox-list');
+            const labels = listContainer.getElementsByTagName('label');
+            Array.from(labels).forEach(label => {
+                const text = label.innerText.toLowerCase();
+                if (text.includes(q)) {
+                    label.style.display = "flex";
+                } else {
+                    label.style.display = "none";
+                }
+            });
         }
 
         function renderOriginCheckboxes(origensNorm) {
