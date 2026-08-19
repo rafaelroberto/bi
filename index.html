@@ -100,7 +100,7 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Card de Integração Puca CRM (EXCLUSIVO MODO ADMIN) -->
+        <!-- Card de Integração Puca CRM -->
         <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
@@ -110,9 +110,9 @@
                     <div>
                         <h2 class="text-sm font-bold text-white flex items-center space-x-2">
                             <span>Autenticação API & Sincronização Puca CRM</span>
-                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + Server Proxy</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Credenciais para conexão direta via API do Puca CRM.</p>
+                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API e carregar as oportunidades.</p>
                     </div>
                 </div>
 
@@ -252,7 +252,7 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS 2 & 3: Funil Comercial & Forecast do Mês -->
+            <!-- GRÁFICOS 2 & 3: Funil e Forecast -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
@@ -280,7 +280,7 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS 4 & 5: Desempenho por Vendedor & Motivos de Perda -->
+            <!-- GRÁFICOS 4 & 5: Vendedores e Motivos de Perda -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -392,7 +392,6 @@
         let currentPage = 1;
         const rowsPerPage = 15;
 
-        // Instâncias Globais dos Gráficos
         let chartMonthlyTrend = null;
         let chartForecast = null;
         let chartUser = null;
@@ -676,7 +675,7 @@
         }
 
         // =========================================================================
-        // RENDERING DOS 5 GRÁFICOS VISUAIS
+        // RESTAURAÇÃO DOS 5 GRÁFICOS VISUAIS (CHART.JS)
         // =========================================================================
         function renderAllCharts() {
             renderMonthlyChart();
@@ -912,23 +911,34 @@
         }
 
         // =========================================================================
-        // CONEXÃO PUCA CRM (MÚLTIPLOS FALLBACKS E PARSING FLEXÍVEL)
+        // REQUISIÇÕES DA API COM PROXY SERVERLESS (EVITA BLOQUEIO CORS)
         // =========================================================================
         async function fetchWithCorsFallback(url, options) {
             try {
+                // Tenta requisição direta primeiro
                 const response = await fetch(url, options);
                 if (response.ok) return response;
                 throw new Error(`HTTP Status ${response.status}`);
             } catch (err) {
-                console.warn("Tentando conexão via Proxy CORS para:", url);
-                const proxy1 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                console.warn("Redirecionando para o Proxy de Servidor para ignorar restrições de CORS no GitHub Pages:", url);
+                
+                // Extrai o host de destino para encaminhamento no cabeçalho x-target-host
+                const urlObj = new URL(url);
+                const customHeaders = new Headers(options.headers || {});
+                customHeaders.set("x-target-host", urlObj.host);
+
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
                 try {
-                    const resProxy = await fetch(proxy1, options);
+                    const resProxy = await fetch(proxyUrl, {
+                        ...options,
+                        headers: customHeaders
+                    });
                     if (resProxy.ok) return resProxy;
                 } catch(e) {}
                 
-                const proxy2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                return await fetch(proxy2, options);
+                // Fallback secundário
+                const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                return await fetch(proxyUrl2, { ...options, headers: customHeaders });
             }
         }
 
@@ -968,7 +978,6 @@
                 let tokenText = await loginRes.text();
                 let token = "";
                 
-                // Trata formato JSON { "token": "..." } ou String pura do JWT
                 try {
                     const tokenJson = JSON.parse(tokenText);
                     token = typeof tokenJson === 'string' ? tokenJson : (tokenJson.token || tokenJson.jwt || tokenText);
@@ -1037,7 +1046,7 @@
             } catch (err) {
                 console.error("Erro na API Puca:", err);
                 if (recordCountEl) recordCountEl.innerText = "Erro ao conectar";
-                alert(`Erro na Conexão com o Puca CRM:\n\n${err.message}\n\nSe estiver no GitHub Pages, certifique-se de que seu navegador aceita chamadas cruzadas de API.`);
+                alert(`Erro na Conexão com o Puca CRM:\n\n${err.message}`);
             }
         }
 
