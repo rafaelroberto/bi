@@ -913,7 +913,19 @@
                 loadForecastData();
                 populateDropdowns();
                 populateFunnelSellerDropdown();
-                resetAllFilters();
+                
+                // Forçar cópia inicial completa dos dados para carregamento automático na abertura
+                filteredData = [...rawData];
+                currentPage = 1;
+                applySortingToData();
+                updateKPIs();
+                renderSellerRanking();
+                renderRankingTable();
+                renderMotivosPerda();
+                renderFunnelChart();
+                renderForecastModule();
+                renderCharts();
+                renderTable();
             } else {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('empty-title').innerText = "Nenhuma planilha salva no momento";
@@ -987,7 +999,19 @@
                 loadForecastData();
                 populateDropdowns();
                 populateFunnelSellerDropdown();
-                resetAllFilters();
+                
+                // Forçar cópia inicial completa dos dados para carregamento automático na abertura
+                filteredData = [...rawData];
+                currentPage = 1;
+                applySortingToData();
+                updateKPIs();
+                renderSellerRanking();
+                renderRankingTable();
+                renderMotivosPerda();
+                renderFunnelChart();
+                renderForecastModule();
+                renderCharts();
+                renderTable();
 
                 alert("Planilha restaurada para a base oficial!");
             }
@@ -1468,7 +1492,8 @@
 
             if (selectedOrigins.length === 0) {
                 labelEl.innerText = "Nenhuma Origem Selecionada";
-                labelEl.className = "truncate text-rose-500 font-semibold";
+                labelEl.className = "truncate text-r
+ose-500 font-semibold";
             } else if (selectedOrigins.length === allOrigs.length) {
                 labelEl.innerText = "Todas as Origens Selecionadas";
                 labelEl.className = "truncate font-medium text-slate-700";
@@ -1489,8 +1514,7 @@
             } else {
                 startInput.disabled = true;
                 endInput.disabled = true;
-         
-       startInput.value = '';
+                startInput.value = '';
                 endInput.value = '';
                 applyFilters();
             }
@@ -1575,8 +1599,9 @@
                     if (removeAccents(d.usuario) !== removeAccents(userVal)) return false;
                 }
 
-                // 3. Filtro por Origens (Multi-seleção)
-                if (selectedOriginsClean.length > 0) {
+                // 3. Filtro por Origens (Multi-seleção) - Só filtra se o usuário desmarcou alguma origem
+                const allOriginsCount = [...new Set(rawData.map(item => removeAccents(item.indicacao)))].length;
+                if (selectedOriginsClean.length > 0 && selectedOriginsClean.length < allOriginsCount) {
                     const origClean = removeAccents(d.indicacao);
                     if (!selectedOriginsClean.includes(origClean)) return false;
                 }
