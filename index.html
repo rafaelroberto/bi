@@ -106,40 +106,55 @@
                 </div>
             </div>
 
-                        <!-- Conexão com API do Puca CRM e Botões Admin -->
-            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
-                <!-- Credenciais API Puca CRM -->
-                <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-700/80 flex flex-wrap sm:flex-nowrap items-center gap-2">
-                    <input type="text" id="puca-host" placeholder="Host (ex: puca.suaempresa.com.br)" class="bg-slate-800 border border-slate-700 text-white text-xs px-2.5 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full sm:w-48 font-mono">
-                    <input type="password" id="puca-token" placeholder="Bearer Token do Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-2.5 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full sm:w-44 font-mono">
-                    <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-center space-x-1 whitespace-nowrap">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                        <span>Sincronizar Puca CRM</span>
-                    </button>
-                </div>
+            <!-- Botões de Ação Admin -->
+            <div class="flex flex-wrap items-center gap-3">
+                <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Subir / Atualizar Planilha Oficial</span>
+                </label>
+                <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
 
-                <div class="flex items-center gap-2">
-                    <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-sm whitespace-nowrap">
-                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                        <span>Subir Excel</span>
-                    </label>
-                    <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
+                <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1.5">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Excluir Planilha Personalizada</span>
+                </button>
 
-                    <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1 whitespace-nowrap">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        <span>Excluir Dados</span>
-                    </button>
-
-                    <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-2 rounded-lg text-xs font-medium transition">
-                        Sair
-                    </button>
-                </div>
-            </div></div>
+                <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition">
+                    Sair do Admin
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+                <!-- Card / Barra Visível de Integração Nativa com Puca CRM -->
+        <div class="bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-indigo-600 rounded-lg flex-shrink-0">
+                        <i data-lucide="refresh-cw" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+                            <span>Conexão Direta & Sincronização Puca CRM</span>
+                            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">API POST /find</span>
+                        </h2>
+                        <p class="text-xs text-slate-400">Insira o Host e Token do seu CRM do Puca para buscar e atualizar os dados em tempo real.</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
+                    <input type="text" id="puca-host" placeholder="Host (ex: puca.suaempresa.com.br)" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-56 font-mono">
+                    <input type="password" id="puca-token" placeholder="Bearer Token do Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
+                    <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm whitespace-nowrap w-full sm:w-auto">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Sincronizar Puca CRM</span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Barra de Filtros Globais Unificada -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/80 space-y-4 no-pdf">
@@ -853,7 +868,7 @@
         // INICIALIZAÇÃO DE DADOS (SUPABASE -> LOCALSTORAGE -> EMBUTIDO)
         
         // =========================================================================
-        // MÓDULO DE INTEGRAÇÃO COM A API DO PUCA CRM (MÉTODO POST /find)
+        // MÓDULO DE INTEGRAÇÃO COM A API DO PUCA CRM (VISÍVEL E DIRETA)
         // =========================================================================
         const PUCA_HOST_KEY = 'bi_puca_crm_host';
         const PUCA_TOKEN_KEY = 'bi_puca_crm_token';
@@ -868,12 +883,6 @@
         }
 
         async function salvarEPuxarPucaCRM() {
-            if (!isAdminLoggedIn) {
-                alert("Apenas o Administrador pode configurar a sincronização do Puca CRM.");
-                openAdminModal();
-                return;
-            }
-
             const hostInput = document.getElementById('puca-host');
             const tokenInput = document.getElementById('puca-token');
 
@@ -881,14 +890,16 @@
             const token = tokenInput ? tokenInput.value.trim() : '';
 
             if (!host || !token) {
-                alert("Por favor, preencha o Host/Domínio e o Token Bearer da API do Puca CRM.");
+                alert("Por favor, preencha o Host/Domínio e o Token Bearer da API do Puca CRM para sincronizar.");
                 return;
             }
 
             localStorage.setItem(PUCA_HOST_KEY, host);
             localStorage.setItem(PUCA_TOKEN_KEY, token);
 
-            alert("Iniciando consulta à API do Puca CRM via POST /find...");
+            const countEl = document.getElementById('record-count');
+            if (countEl) countEl.innerText = "Consultando Puca CRM...";
+
             await sincronizarComPucaCRM(host, token);
         }
 
@@ -1476,7 +1487,8 @@
 
             funnelData.forEach(d => {
                 const stLower = d.etapa.toLowerCase().trim();
-                for (let st of funnelStagesOrder) {
+                for (let st o
+f funnelStagesOrder) {
                     if (stLower.includes(st.name.toLowerCase())) {
                         stageCounts[st.name.toLowerCase()]++;
                         break;
@@ -1493,8 +1505,7 @@
             funnelStagesOrder.forEach((st, idx) => {
                 const count = stageCounts[st.name.toLowerCase()] || 0;
                 const widthPct = Math.max((count / maxVal) * 100, 12); // Pelo menos 12% para o rótulo ficar legível
-                const pctOfTotal = ((count / totalDea
-ls) * 100).toFixed(1);
+                const pctOfTotal = ((count / totalDeals) * 100).toFixed(1);
 
                 const funnelRow = document.createElement('div');
                 funnelRow.className = 'flex items-center space-x-3 cursor-pointer group hover:opacity-90 transition';
