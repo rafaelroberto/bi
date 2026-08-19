@@ -10,8 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS para Excel/CSV -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- Supabase JS Client SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- html2pdf.js para Exportação em PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Lucide Icons -->
@@ -67,7 +65,7 @@
         </div>
     </header>
 
-    <!-- PAINEL ADMIN (SÓ APARECE APÓS LOGIN DO ADMIN) -->
+    <!-- PAINEL ADMIN (APARECE APENAS APÓS LOGIN DO ADMIN) -->
     <div id="admin-panel" class="hidden bg-slate-900 border-b border-slate-800 text-slate-200 py-4 px-4 sm:px-6 lg:px-8 space-y-4 no-pdf">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700">
             <div class="flex items-center space-x-3">
@@ -75,21 +73,21 @@
                     <i data-lucide="folder-git2" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h3 class="text-sm font-bold text-white">Gerenciamento da Planilha Oficial</h3>
-                    <p class="text-xs text-slate-400">Suba uma nova planilha para atualizar o banco de dados e disponibilizar para todos os usuários.</p>
+                    <h3 class="text-sm font-bold text-white">Gerenciamento & Integrações</h3>
+                    <p class="text-xs text-slate-400">Sincronize com a API do Puca CRM ou suba uma planilha personalizada.</p>
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
                 <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
                     <i data-lucide="upload" class="w-4 h-4"></i>
-                    <span>Subir / Atualizar Planilha Oficial</span>
+                    <span>Subir Excel</span>
                 </label>
                 <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
 
                 <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1.5">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    <span>Excluir Planilha Personalizada</span>
+                    <span>Excluir Dados</span>
                 </button>
 
                 <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition">
@@ -102,7 +100,7 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Card de Integração Puca CRM (EXCLUSIVO PARA ADMIN) -->
+        <!-- Card de Integração Puca CRM (VISÍVEL APENAS QUANDO ADMIN LOGADO) -->
         <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
@@ -114,7 +112,7 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API, obter o JWT e carregar as oportunidades.</p>
+                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API e carregar as oportunidades.</p>
                     </div>
                 </div>
 
@@ -142,7 +140,7 @@
                         Limpar Todos os Filtros
                     </button>
                     <span id="record-count" class="text-xs bg-slate-100 text-slate-600 font-medium px-2.5 py-1 rounded-full border border-slate-200">
-                        Iniciando dados...
+                        Carregando registros...
                     </span>
                 </div>
             </div>
@@ -160,45 +158,13 @@
                         <option value="all">Todos os Vendedores</option>
                     </select>
                 </div>
-                <div class="relative">
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Origem / Indicação</label>
-                    <button id="origin-multiselect-btn" onclick="toggleOriginDropdown()" type="button" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
-                        <span id="origin-multiselect-label" class="truncate">Todas as Origens</span>
-                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0"></i>
-                    </button>
-                    <div id="origin-dropdown-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2 max-h-72 flex flex-col">
-                        <div class="space-y-2 pb-2 border-b border-slate-100">
-                            <input type="text" id="origin-search-input" onkeyup="filterOriginCheckboxes(this.value)" placeholder="🔍 Buscar origem..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium">
-                            <div class="flex items-center justify-between text-xs font-medium">
-                                <button onclick="selectAllOrigins(true)" type="button" class="text-indigo-600 hover:text-indigo-800">Selecionar Todos</button>
-                                <button onclick="selectAllOrigins(false)" type="button" class="text-slate-400 hover:text-slate-600">Limpar Seleção</button>
-                            </div>
-                        </div>
-                        <div id="origin-checkbox-list" class="space-y-1.5 text-xs overflow-y-auto custom-scrollbar flex-1 max-h-48"></div>
-                    </div>
-                </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Período de Entrada</label>
-                    <select id="filter-period" onchange="handlePeriodChange()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Período</label>
+                    <select id="filter-period" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
                         <option value="all" selected>Todo o Período</option>
-                        <option value="this-month">Este Mês</option>
-                        <option value="last-month">Mês Passado</option>
                         <option value="2026">Ano 2026</option>
                         <option value="2025">Ano 2025</option>
-                        <option value="custom">Personalizado</option>
                     </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Data Início</label>
-                    <input type="date" id="filter-start-date" disabled onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 disabled:opacity-50">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Data Fim</label>
-                    <input type="date" id="filter-end-date" disabled onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 disabled:opacity-50">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Data Específica</label>
-                    <input type="date" id="filter-exact-date" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700">
                 </div>
             </div>
         </div>
@@ -207,54 +173,62 @@
         <div id="dashboard-content" class="space-y-6">
             <!-- Cards de KPIs -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div onclick="drilldownKPI('Ganho')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-emerald-600">Negócios Ganhos 🔍</p>
-                        <h3 id="kpi-ganhos" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
-                        <p id="kpi-ganhos-pct" class="text-xs text-slate-400 mt-0.5">0% do total</p>
-                    </div>
-                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-600 group-hover:text-white">
-                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Negócios Ganhos</p>
+                    <h3 id="kpi-ganhos" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Negócios Perdidos</p>
+                    <h3 id="kpi-perdidos" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Taxa de Conversão</p>
+                    <h3 id="kpi-conversion" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Em Andamento</p>
+                    <h3 id="kpi-pipeline" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total de Leads</p>
+                    <h3 id="kpi-total" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+            </div>
+
+            <!-- Gráfico 1: Evolução Mensal -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                <h2 class="text-sm font-semibold text-slate-800 mb-3">Evolução Mensal de Oportunidades</h2>
+                <div class="h-64 relative">
+                    <canvas id="chart-monthly-trend"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico 2 e 3: Funil Comercial e Forecast -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Funil Comercial Visual</h2>
+                    <div id="funnel-visual-container" class="space-y-2"></div>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Forecast do Mês</h2>
+                    <div class="h-48 relative">
+                        <canvas id="chart-forecast-performance"></canvas>
                     </div>
                 </div>
-                <div onclick="drilldownKPI('Perdido')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-rose-600">Negócios Perdidos 🔍</p>
-                        <h3 id="kpi-perdidos" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
-                        <p id="kpi-perdidos-pct" class="text-xs text-slate-400 mt-0.5">0% do total</p>
-                    </div>
-                    <div class="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-600 group-hover:text-white">
-                        <i data-lucide="x-circle" class="w-6 h-6"></i>
-                    </div>
-                </div>
-                <div onclick="drilldownKPI('Conversao')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-indigo-600">Taxa de Conversão 🔍</p>
-                        <h3 id="kpi-conversion" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Ganhos vs Perdidos</p>
-                    </div>
-                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white">
-                        <i data-lucide="trending-up" class="w-6 h-6"></i>
+            </div>
+
+            <!-- Gráfico 4 e 5: Desempenho Vendedores e Motivos de Perda -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Comparativo de Vendedores</h2>
+                    <div class="h-64 relative">
+                        <canvas id="chart-user-perf"></canvas>
                     </div>
                 </div>
-                <div onclick="drilldownKPI('Pipeline')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-amber-600">Em Andamento 🔍</p>
-                        <h3 id="kpi-pipeline" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Em negociação/proposta</p>
-                    </div>
-                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-600 group-hover:text-white">
-                        <i data-lucide="clock" class="w-6 h-6"></i>
-                    </div>
-                </div>
-                <div onclick="drilldownKPI('Total')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-slate-800">Total de Leads 🔍</p>
-                        <h3 id="kpi-total" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Clique para ver todos</p>
-                    </div>
-                    <div class="p-3 bg-slate-100 text-slate-600 rounded-xl group-hover:bg-slate-800 group-hover:text-white">
-                        <i data-lucide="layers" class="w-6 h-6"></i>
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Ranking de Motivos de Perda</h2>
+                    <div class="h-64 relative">
+                        <canvas id="chart-motivos-perda"></canvas>
                     </div>
                 </div>
             </div>
@@ -282,7 +256,6 @@
                                 <th onclick="sortTable('etapa')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600">Etapa <span id="sort-icon-etapa">↕</span></th>
                                 <th onclick="sortTable('indicacao')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600">Origem Unificada <span id="sort-icon-indicacao">↕</span></th>
                                 <th onclick="sortTable('motivo_perda')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600">Motivo de Perda <span id="sort-icon-motivo_perda">↕</span></th>
-                                <th class="px-4 py-3 text-center w-24">⭐ Forecast</th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-slate-100 font-medium"></tbody>
@@ -301,7 +274,7 @@
         </div>
     </main>
 
-    <!-- Modal de Autenticação do Admin -->
+    <!-- Modal Admin -->
     <div id="admin-auth-modal" class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">
             <div class="inline-flex p-3 bg-amber-100 text-amber-600 rounded-2xl">
@@ -309,10 +282,10 @@
             </div>
             <div>
                 <h3 class="text-lg font-bold text-slate-900">Autenticação do Administrador</h3>
-                <p class="text-xs text-slate-500 mt-1">Digite a senha para acessar permissões de admin.</p>
+                <p class="text-xs text-slate-500 mt-1">Digite a senha para acessar as configurações de Admin.</p>
             </div>
             <div>
-                <input type="password" id="admin-pass-input" placeholder="Senha do Administrador" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-center font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="password" id="admin-pass-input" placeholder="Senha do Administrador" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-center font-medium text-slate-800 focus:outline-none">
                 <p id="admin-pass-error" class="text-xs text-rose-600 font-semibold mt-1.5 hidden">Senha incorreta.</p>
             </div>
             <div class="flex items-center space-x-2 pt-2">
@@ -323,15 +296,17 @@
         </div>
     </div>
 
-    <!-- Script de Inicialização e Correções -->
+    <!-- Script de Execução e Gráficos -->
     <script>
         const LOCAL_STORAGE_KEY = 'bi_comercial_persisted_data';
         const LOCAL_STORAGE_META_KEY = 'bi_comercial_import_time';
         const ADMIN_PASS = 'admin123';
 
+        const PUCA_HOST_KEY = 'bi_puca_crm_host';
+        const PUCA_USER_KEY = 'bi_puca_crm_user';
+
         let rawData = [];
         let filteredData = [];
-        let selectedOrigins = [];
         let isAdminLoggedIn = false;
 
         let currentSortColumn = 'data_iso';
@@ -339,11 +314,23 @@
         let currentPage = 1;
         const rowsPerPage = 15;
 
-        // INICIALIZAÇÃO INCONDICIONAL
+        let chartMonthlyTrend = null;
+        let chartForecast = null;
+        let chartUser = null;
+        let chartMotivos = null;
+
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();
+            loadPucaCredentials();
             initDataset();
         });
+
+        function loadPucaCredentials() {
+            const host = localStorage.getItem(PUCA_HOST_KEY) || '';
+            const user = localStorage.getItem(PUCA_USER_KEY) || '';
+            if (document.getElementById('puca-host')) document.getElementById('puca-host').value = host;
+            if (document.getElementById('puca-user')) document.getElementById('puca-user').value = user;
+        }
 
         function initDataset() {
             try {
@@ -366,19 +353,70 @@
         }
 
         function loadDefaultDataset() {
-            // Garante que o dataset base padrão seja sempre carregado na memória
             rawData = [
-                { chave: 607492, titulo: "CENTAURO COMERCIO", data: "10/02/2025 01:06:32", data_iso: "2025-02-10", usuario: "ana.lopes", etapa: "Perdido", indicacao: "Não Informada", razao: "CENTAURO COMERCIO DE BATERIAS", motivo_perda: "Não informado" },
-                { chave: 607628, titulo: "T&C FOODS", data: "24/04/2025 12:25:11", data_iso: "2025-04-24", usuario: "leandro.souza", etapa: "Ganho", indicacao: "Não Informada", razao: "COSTA MEAT DIST DE ALIM LTDA", motivo_perda: "" },
-                { chave: 613850, titulo: "EMULZINT", data: "17/07/2026 02:43:40", data_iso: "2026-07-17", usuario: "guilherme.santos", etapa: "Negociação", indicacao: "Não Informada", razao: "EMULZINT ADITIVOS ALIMENTICIOS", motivo_perda: "" }
+                { chave: 607492, titulo: "CENTAURO COMERCIO", data: "10/02/2025", data_iso: "2025-02-10", year_month: "2025-02", usuario: "ana.lopes", etapa: "Perdido", indicacao: "Não Informada", razao: "CENTAURO COMERCIO DE BATERIAS", motivo_perda: "Não informado" },
+                { chave: 607628, titulo: "T&C FOODS", data: "24/04/2025", data_iso: "2025-04-24", year_month: "2025-04", usuario: "leandro.souza", etapa: "Ganho", indicacao: "Não Informada", razao: "COSTA MEAT DIST DE ALIM LTDA", motivo_perda: "" },
+                { chave: 613850, titulo: "EMULZINT", data: "17/07/2026", data_iso: "2026-07-17", year_month: "2026-07", usuario: "guilherme.santos", etapa: "Negociação", indicacao: "Não Informada", razao: "EMULZINT ADITIVOS ALIMENTICIOS", motivo_perda: "" },
+                { chave: 614029, titulo: "PESCADOS VEMAR", data: "05/01/2026", data_iso: "2026-01-05", year_month: "2026-01", usuario: "guilherme.santos", etapa: "Ganho", indicacao: "Milena Financeiro", razao: "PESCADOS VEMAR INDUSTRIA", motivo_perda: "" },
+                { chave: 615163, titulo: "Brasil Distribuidora", data: "16/04/2026", data_iso: "2026-04-16", year_month: "2026-04", usuario: "guilherme.santos", etapa: "Perdido", indicacao: "Lucas Neves", razao: "BRASIL DISTRIBUIDORA LTDA", motivo_perda: "Concorrente" }
             ];
         }
 
         function renderFullDashboardInstant() {
             filteredData = [...rawData];
+            populateDropdowns();
             applySortingToData();
             updateKPIs();
             renderTable();
+            renderAllCharts();
+        }
+
+        function populateDropdowns() {
+            const userSelect = document.getElementById('filter-user');
+            const etapaSelect = document.getElementById('filter-etapa');
+            if (!userSelect || !etapaSelect) return;
+
+            const users = [...new Set(rawData.map(d => d.usuario))].sort();
+            const etapas = [...new Set(rawData.map(d => d.etapa))].sort();
+
+            userSelect.innerHTML = '<option value="all">Todos os Vendedores</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
+            etapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>' + etapas.map(e => `<option value="${e}">${e}</option>`).join('');
+        }
+
+        function applyFilters() {
+            const etapaVal = document.getElementById('filter-etapa').value;
+            const userVal = document.getElementById('filter-user').value;
+            const periodVal = document.getElementById('filter-period').value;
+            const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
+
+            filteredData = rawData.filter(d => {
+                if (etapaVal !== 'all' && d.etapa !== etapaVal) return false;
+                if (userVal !== 'all' && d.usuario !== userVal) return false;
+                if (periodVal !== 'all' && !d.data_iso.startsWith(periodVal)) return false;
+                if (searchVal && !d.razao.toLowerCase().includes(searchVal) && !d.titulo.toLowerCase().includes(searchVal) && !String(d.chave).includes(searchVal)) return false;
+                return true;
+            });
+
+            currentPage = 1;
+            applySortingToData();
+            updateKPIs();
+            renderTable();
+            renderAllCharts();
+        }
+
+        function updateKPIs() {
+            const total = filteredData.length;
+            const ganhos = filteredData.filter(d => d.etapa.toLowerCase() === 'ganho').length;
+            const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido').length;
+            const pipeline = total - (ganhos + perdidos);
+            const conversion = (ganhos + perdidos) > 0 ? ((ganhos / (ganhos + perdidos)) * 100).toFixed(1) : 0;
+
+            document.getElementById('kpi-total').innerText = total;
+            document.getElementById('kpi-ganhos').innerText = ganhos;
+            document.getElementById('kpi-perdidos').innerText = perdidos;
+            document.getElementById('kpi-pipeline').innerText = pipeline;
+            document.getElementById('kpi-conversion').innerText = `${conversion}%`;
+            document.getElementById('record-count').innerText = `${total} registros no total`;
         }
 
         function applySortingToData() {
@@ -401,7 +439,7 @@
             const pageItems = filteredData.slice(startIdx, endIdx);
 
             if (pageItems.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
                 return;
             }
 
@@ -416,7 +454,6 @@
                     <td class="px-4 py-3"><span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-indigo-50 text-indigo-700">${item.etapa}</span></td>
                     <td class="px-4 py-3 font-semibold text-indigo-600">${item.indicacao}</td>
                     <td class="px-4 py-3 text-slate-500">${item.motivo_perda || '-'}</td>
-                    <td class="px-4 py-3 text-center">-</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -426,15 +463,148 @@
             document.getElementById('pagination-info').innerText = `Mostrando ${startIdx + 1} até ${Math.min(endIdx, filteredData.length)} de ${filteredData.length} registros`;
         }
 
-        function updateKPIs() {
-            const total = filteredData.length;
+        function renderAllCharts() {
+            renderMonthlyChart();
+            renderFunnelVisual();
+            renderForecastChart();
+            renderUserChart();
+            renderMotivosChart();
+        }
+
+        function renderMonthlyChart() {
+            const months = [...new Set(filteredData.map(d => d.year_month))].sort();
+            const counts = months.map(m => filteredData.filter(d => d.year_month === m).length);
+
+            if (chartMonthlyTrend) chartMonthlyTrend.destroy();
+            const ctx = document.getElementById('chart-monthly-trend').getContext('2d');
+            chartMonthlyTrend = new Chart(ctx, {
+                type: 'line',
+                data: { labels: months, datasets: [{ label: 'Oportunidades', data: counts, borderColor: '#6366f1', tension: 0.3 }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderFunnelVisual() {
+            const container = document.getElementById('funnel-visual-container');
+            if (!container) return;
+
+            const stages = ['Prospecção', 'Qualificação', 'Demonstração', 'Proposta', 'Negociação', 'Ganho', 'Perdido'];
+            container.innerHTML = stages.map(st => {
+                const count = filteredData.filter(d => d.etapa.toLowerCase().includes(st.toLowerCase())).length;
+                return `
+                    <div class="flex items-center space-x-2 text-xs">
+                        <span class="w-24 font-medium text-slate-600">${st}</span>
+                        <div class="flex-1 bg-slate-100 h-4 rounded overflow-hidden">
+                            <div class="bg-indigo-600 h-full rounded" style="width: ${Math.min(count * 20, 100)}%;"></div>
+                        </div>
+                        <span class="w-8 font-bold text-slate-700 text-right">${count}</span>
+                    </div>`;
+            }).join('');
+        }
+
+        function renderForecastChart() {
             const ganhos = filteredData.filter(d => d.etapa.toLowerCase() === 'ganho').length;
-            const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido').length;
-            
-            document.getElementById('kpi-total').innerText = total;
-            document.getElementById('kpi-ganhos').innerText = ganhos;
-            document.getElementById('kpi-perdidos').innerText = perdidos;
-            document.getElementById('record-count').innerText = `${total} registros no total`;
+            const emAndamento = filteredData.filter(d => d.etapa.toLowerCase() !== 'ganho' && d.etapa.toLowerCase() !== 'perdido').length;
+
+            if (chartForecast) chartForecast.destroy();
+            const ctx = document.getElementById('chart-forecast-performance').getContext('2d');
+            chartForecast = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Ganhos', 'Em Andamento'], datasets: [{ data: [ganhos, emAndamento], backgroundColor: ['#10b981', '#f59e0b'] }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderUserChart() {
+            const users = [...new Set(filteredData.map(d => d.usuario))];
+            const counts = users.map(u => filteredData.filter(d => d.usuario === u).length);
+
+            if (chartUser) chartUser.destroy();
+            const ctx = document.getElementById('chart-user-perf').getContext('2d');
+            chartUser = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: users, datasets: [{ label: 'Total por Vendedor', data: counts, backgroundColor: '#6366f1' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderMotivosChart() {
+            const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
+            const motivosMap = {};
+            perdidos.forEach(d => {
+                const m = d.motivo_perda || 'Não informado';
+                motivosMap[m] = (motivosMap[m] || 0) + 1;
+            });
+
+            if (chartMotivos) chartMotivos.destroy();
+            const ctx = document.getElementById('chart-motivos-perda').getContext('2d');
+            chartMotivos = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: Object.keys(motivosMap), datasets: [{ label: 'Motivos de Perda', data: Object.values(motivosMap), backgroundColor: '#f43f5e' }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        async function salvarEPuxarPucaCRM() {
+            if (!isAdminLoggedIn) {
+                alert("Apenas o Administrador pode sincronizar com o Puca CRM.");
+                return;
+            }
+
+            const host = document.getElementById('puca-host').value.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+            const username = document.getElementById('puca-user').value.trim();
+            const password = document.getElementById('puca-pass').value.trim();
+
+            if (!host || !username || !password) {
+                alert("Por favor, preencha Host, Usuário e Senha do Puca CRM.");
+                return;
+            }
+
+            localStorage.setItem(PUCA_HOST_KEY, host);
+            localStorage.setItem(PUCA_USER_KEY, username);
+
+            try {
+                // 1. LOGIN API PUCA BASE
+                const loginRes = await fetch(`https://${host}/puca-base-api/puca-user/system_user/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!loginRes.ok) throw new Error("Usuário ou senha do Puca CRM inválidos.");
+                let token = await loginRes.text();
+                token = token.replace(/^"|"$/g, '').trim();
+
+                // 2. BUSCAR NEGÓCIOS
+                const dealsRes = await fetch(`https://${host}/puca-crm-api/deal/find`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ "from": "puca_crm_api_deal", "fields": ["puca_key", "title", "person_name", "user_name", "stage_name", "origin", "loss_reason", "created_at"], "where": { "and": [] } })
+                });
+
+                if (!dealsRes.ok) throw new Error("Erro ao buscar dados do CRM Puca.");
+                const deals = await dealsRes.json();
+
+                rawData = deals.map((item, idx) => ({
+                    chave: item.puca_key || idx + 1,
+                    titulo: item.title || '',
+                    data: item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '',
+                    data_iso: item.created_at ? item.created_at.split('T')[0] : '',
+                    year_month: item.created_at ? item.created_at.substring(0, 7) : '',
+                    usuario: item.user_name || 'Não Atribuído',
+                    etapa: item.stage_name || 'Prospecção',
+                    indicacao: item.origin || 'Não Informada',
+                    razao: item.person_name || item.title || '',
+                    motivo_perda: item.loss_reason || ''
+                }));
+
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawData));
+                renderFullDashboardInstant();
+                alert(`Sucesso! ${rawData.length} oportunidades sincronizadas do Puca CRM.`);
+
+            } catch (err) {
+                alert(`Erro ao conectar no Puca CRM: ${err.message}`);
+            }
         }
 
         function openAdminModal() {
@@ -460,18 +630,38 @@
             }
         }
 
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            updateAdminUIState();
+        }
+
         function updateAdminUIState() {
             const pucaCard = document.getElementById('puca-integration-card');
             const adminPanel = document.getElementById('admin-panel');
+            const adminBadge = document.getElementById('admin-badge');
+
             if (isAdminLoggedIn) {
                 if (pucaCard) pucaCard.classList.remove('hidden');
                 if (adminPanel) adminPanel.classList.remove('hidden');
+                if (adminBadge) adminBadge.classList.remove('hidden');
+            } else {
+                if (pucaCard) pucaCard.classList.add('hidden');
+                if (adminPanel) adminPanel.classList.add('hidden');
+                if (adminBadge) adminBadge.classList.add('hidden');
             }
         }
 
         function changePage(direction) {
             currentPage += direction;
             renderTable();
+        }
+
+        function resetAllFilters() {
+            document.getElementById('filter-etapa').value = 'all';
+            document.getElementById('filter-user').value = 'all';
+            document.getElementById('filter-period').value = 'all';
+            document.getElementById('search-input').value = '';
+            applyFilters();
         }
 
         function sortTable(col) {
