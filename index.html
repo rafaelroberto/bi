@@ -100,7 +100,7 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Card de Integração Puca CRM -->
+        <!-- Card de Integração Puca CRM (EXCLUSIVO MODO ADMIN) -->
         <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
@@ -112,7 +112,7 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Credenciais para sincronizar com o Puca CRM.</p>
+                        <p class="text-xs text-slate-400">Credenciais para conexão direta via API do Puca CRM.</p>
                     </div>
                 </div>
 
@@ -252,7 +252,7 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS 2 & 3: Funil e Forecast -->
+            <!-- GRÁFICOS 2 & 3: Funil Comercial & Forecast do Mês -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
@@ -280,7 +280,7 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS 4 & 5: Vendedores e Motivos de Perda -->
+            <!-- GRÁFICOS 4 & 5: Desempenho por Vendedor & Motivos de Perda -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -392,6 +392,7 @@
         let currentPage = 1;
         const rowsPerPage = 15;
 
+        // Instâncias Globais dos Gráficos
         let chartMonthlyTrend = null;
         let chartForecast = null;
         let chartUser = null;
@@ -675,9 +676,8 @@
         }
 
         // =========================================================================
-        // RESTAURAÇÃO DOS 5 GRÁFICOS VISUAIS
+        // RENDERING DOS 5 GRÁFICOS VISUAIS
         // =========================================================================
-
         function renderAllCharts() {
             renderMonthlyChart();
             renderFunnelChart();
@@ -693,7 +693,9 @@
             const perdidos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'perdido').length);
 
             if (chartMonthlyTrend) chartMonthlyTrend.destroy();
-            const ctx = document.getElementById('chart-monthly-trend').getContext('2d');
+            const canvas = document.getElementById('chart-monthly-trend');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             chartMonthlyTrend = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -754,7 +756,9 @@
             const emAndamento = forecastDeals.length - (ganhos + perdidos);
 
             if (chartForecast) chartForecast.destroy();
-            const ctx = document.getElementById('chart-forecast-performance').getContext('2d');
+            const canvas = document.getElementById('chart-forecast-performance');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             chartForecast = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -771,7 +775,9 @@
             const perdidos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'perdido').length);
 
             if (chartUser) chartUser.destroy();
-            const ctx = document.getElementById('chart-user-perf').getContext('2d');
+            const canvas = document.getElementById('chart-user-perf');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             chartUser = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -794,7 +800,9 @@
             });
 
             if (chartMotivos) chartMotivos.destroy();
-            const ctx = document.getElementById('chart-motivos-perda').getContext('2d');
+            const canvas = document.getElementById('chart-motivos-perda');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             chartMotivos = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -903,12 +911,16 @@
             });
         }
 
+        // =========================================================================
+        // CONEXÃO PUCA CRM (MÚLTIPLOS FALLBACKS E PARSING FLEXÍVEL)
+        // =========================================================================
         async function fetchWithCorsFallback(url, options) {
             try {
                 const response = await fetch(url, options);
                 if (response.ok) return response;
-                throw new Error(`Status ${response.status}`);
+                throw new Error(`HTTP Status ${response.status}`);
             } catch (err) {
+                console.warn("Tentando conexão via Proxy CORS para:", url);
                 const proxy1 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
                 try {
                     const resProxy = await fetch(proxy1, options);
@@ -943,7 +955,7 @@
             if (recordCountEl) recordCountEl.innerText = "Autenticando no Puca CRM...";
 
             try {
-                // 1. LOGIN API PUCA BASE
+                // 1. AUTENTICAÇÃO NO PUCA BASE API
                 const loginUrl = `https://${host}/puca-base-api/puca-user/system_user/login`;
                 const loginRes = await fetchWithCorsFallback(loginUrl, {
                     method: 'POST',
@@ -952,19 +964,31 @@
                 });
 
                 if (!loginRes.ok) throw new Error("Usuário ou senha do Puca CRM inválidos.");
-                let token = await loginRes.text();
+                
+                let tokenText = await loginRes.text();
+                let token = "";
+                
+                // Trata formato JSON { "token": "..." } ou String pura do JWT
+                try {
+                    const tokenJson = JSON.parse(tokenText);
+                    token = typeof tokenJson === 'string' ? tokenJson : (tokenJson.token || tokenJson.jwt || tokenText);
+                } catch(e) {
+                    token = tokenText;
+                }
+
                 token = token.replace(/^"|"$/g, '').replace(/[\r\n]+/g, '').trim();
 
-                if (!token) throw new Error("Token JWT não retornado pela API.");
+                if (!token || token.length < 20) throw new Error("Token JWT não retornado pela API.");
 
                 if (recordCountEl) recordCountEl.innerText = "Buscando Oportunidades...";
 
-                // 2. BUSCA DE OPORTUNIDADES VIA POST /find (PAYLOAD AJUSTADO)
+                // 2. BUSCA DE OPORTUNIDADES VIA POST /puca-crm-api/deal/find
                 const findUrl = `https://${host}/puca-crm-api/deal/find`;
                 const dealsRes = await fetchWithCorsFallback(findUrl, {
                     method: 'POST',
                     headers: { 
                         'Authorization': `Bearer ${token}`,
+                        'PucaAuthorization': token,
                         'Content-Type': 'application/json' 
                     },
                     body: JSON.stringify({ 
@@ -983,10 +1007,10 @@
                     })
                 });
 
-                if (!dealsRes.ok) throw new Error(`Status ${dealsRes.status} ao consultar CRM.`);
+                if (!dealsRes.ok) throw new Error(`Status ${dealsRes.status} na consulta do CRM.`);
                 const deals = await dealsRes.json();
 
-                if (!Array.isArray(deals)) throw new Error("A resposta do CRM não veio no formato de lista.");
+                if (!Array.isArray(deals)) throw new Error("A resposta do CRM não retornou uma lista válida de negócios.");
 
                 rawData = deals.map((item, idx) => ({
                     chave: item.puca_key || idx + 1,
@@ -1013,7 +1037,7 @@
             } catch (err) {
                 console.error("Erro na API Puca:", err);
                 if (recordCountEl) recordCountEl.innerText = "Erro ao conectar";
-                alert(`Erro na Conexão com o Puca CRM:\n\n${err.message}\n\nVerifique se o usuário/senha têm permissão de acesso à API.`);
+                alert(`Erro na Conexão com o Puca CRM:\n\n${err.message}\n\nSe estiver no GitHub Pages, certifique-se de que seu navegador aceita chamadas cruzadas de API.`);
             }
         }
 
