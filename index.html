@@ -65,7 +65,7 @@
         </div>
     </header>
 
-    <!-- PAINEL ADMIN (SÓ APARECE APÓS LOGIN DO ADMIN) -->
+    <!-- PAINEL ADMIN -->
     <div id="admin-panel" class="hidden bg-slate-900 border-b border-slate-800 text-slate-200 py-4 px-4 sm:px-6 lg:px-8 space-y-4 no-pdf">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700">
             <div class="flex items-center space-x-3">
@@ -100,7 +100,7 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Card de Integração Puca CRM (OCULTO - EXCLUSIVO PARA ADMIN) -->
+        <!-- Card de Integração Puca CRM -->
         <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
@@ -112,12 +112,12 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API, obter o JWT e carregar as oportunidades.</p>
+                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API e carregar as oportunidades.</p>
                     </div>
                 </div>
 
                 <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
-                    <input type="text" id="puca-host" placeholder="Host (ex: meunegocio.puca.app)" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
+                    <input type="text" id="puca-host" placeholder="lifeapps.puca.app" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
                     <input type="text" id="puca-user" placeholder="Usuário Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
                     <input type="password" id="puca-pass" placeholder="Senha Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
                     <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm whitespace-nowrap w-full sm:w-auto">
@@ -162,7 +162,7 @@
                     </select>
                 </div>
 
-                <!-- NOVO: Filtro de Origem / Indicação com Pesquisa Interna -->
+                <!-- Filtro de Origem com Pesquisa -->
                 <div class="relative">
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Origem / Indicação</label>
                     <button id="origin-multiselect-btn" onclick="toggleOriginDropdown()" type="button" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
@@ -170,7 +170,6 @@
                         <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0"></i>
                     </button>
 
-                    <!-- Popup Multi-select com Pesquisa -->
                     <div id="origin-dropdown-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2 max-h-72 flex flex-col">
                         <div class="space-y-2 pb-2 border-b border-slate-100">
                             <input type="text" id="origin-search-input" onkeyup="filterOriginCheckboxes(this.value)" placeholder="🔍 Buscar origem..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -183,11 +182,13 @@
                     </div>
                 </div>
 
-                <!-- Período -->
+                <!-- Período de Entrada (Com Este Mês e Mês Passado) -->
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Período de Entrada</label>
                     <select id="filter-period" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
                         <option value="all" selected>Todo o Período</option>
+                        <option value="this-month">Este Mês</option>
+                        <option value="last-month">Mês Passado</option>
                         <option value="2026">Ano 2026</option>
                         <option value="2025">Ano 2025</option>
                     </select>
@@ -251,7 +252,7 @@
                 </div>
             </div>
 
-            <!-- GRÁFICO 1: Evolução Mensal com Tendência -->
+            <!-- GRÁFICO 1: Evolução Mensal -->
             <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                     <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
@@ -264,9 +265,8 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS 2 & 3: Funil Visual por Vendedor & Forecast do Mês -->
+            <!-- GRÁFICOS 2 & 3: Funil e Forecast -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- 2. Funil Comercial Visual -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                         <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
@@ -280,7 +280,6 @@
                     <div id="funnel-visual-container" class="space-y-2 py-2"></div>
                 </div>
 
-                <!-- 3. Forecast de Fechamento do Mês -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
@@ -294,9 +293,8 @@
                 </div>
             </div>
 
-            <!-- GRÁFICOS 4 & 5: Comparativo por Vendedor e Motivos de Perda -->
+            <!-- GRÁFICOS 4 & 5: Vendedores e Motivos de Perda -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- 4. Comparativo por Vendedor -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
@@ -309,7 +307,6 @@
                     </div>
                 </div>
 
-                <!-- 5. Ranking de Motivos de Perda -->
                 <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
@@ -323,7 +320,7 @@
                 </div>
             </div>
 
-            <!-- Tabela Detalhada -->
+            <!-- Tabela Oportunidades em Detalhe -->
             <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden space-y-3">
                 <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center space-x-2">
@@ -387,7 +384,7 @@
         </div>
     </div>
 
-    <!-- Script Principal da Aplicação -->
+    <!-- Script Principal -->
     <script>
         const LOCAL_STORAGE_KEY = 'bi_comercial_persisted_data';
         const LOCAL_STORAGE_META_KEY = 'bi_comercial_import_time';
@@ -408,20 +405,17 @@
         let currentPage = 1;
         const rowsPerPage = 15;
 
-        // Instâncias Globais dos Gráficos
         let chartMonthlyTrend = null;
         let chartForecast = null;
         let chartUser = null;
         let chartMotivos = null;
 
-        // 1. INICIALIZAÇÃO IMEDIATA (0ms)
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();
             loadPucaCredentials();
             loadForecastData();
             initDataset();
 
-            // Fechar dropdown de origem se clicar fora
             document.addEventListener('click', (e) => {
                 const btn = document.getElementById('origin-multiselect-btn');
                 const menu = document.getElementById('origin-dropdown-menu');
@@ -432,8 +426,8 @@
         });
 
         function loadPucaCredentials() {
-            const host = localStorage.getItem(PUCA_HOST_KEY) || '';
-            const user = localStorage.getItem(PUCA_USER_KEY) || '';
+            const host = localStorage.getItem(PUCA_HOST_KEY) || 'lifeapps.puca.app';
+            const user = localStorage.getItem(PUCA_USER_KEY) || 'rafael.nascimento';
             if (document.getElementById('puca-host')) document.getElementById('puca-host').value = host;
             if (document.getElementById('puca-user')) document.getElementById('puca-user').value = user;
         }
@@ -509,7 +503,6 @@
             }
         }
 
-        // FUNÇÕES DO MULTI-SELECT DE ORIGENS COM PESQUISA
         function toggleOriginDropdown() {
             document.getElementById('origin-dropdown-menu').classList.toggle('hidden');
         }
@@ -583,12 +576,23 @@
             const periodVal = document.getElementById('filter-period').value;
             const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
 
+            const now = new Date();
+            const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            let lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonthStr = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
             filteredData = rawData.filter(d => {
                 if (etapaVal !== 'all' && d.etapa !== etapaVal) return false;
                 if (userVal !== 'all' && d.usuario !== userVal) return false;
                 if (selectedOrigins.length > 0 && !selectedOrigins.includes(d.indicacao)) return false;
-                if (periodVal !== 'all' && !d.data_iso.startsWith(periodVal)) return false;
                 if (searchVal && !d.razao.toLowerCase().includes(searchVal) && !d.titulo.toLowerCase().includes(searchVal) && !String(d.chave).includes(searchVal)) return false;
+
+                // Lógica de Período
+                if (periodVal === 'this-month' && (!d.data_iso || !d.data_iso.startsWith(thisMonthStr))) return false;
+                if (periodVal === 'last-month' && (!d.data_iso || !d.data_iso.startsWith(lastMonthStr))) return false;
+                if (periodVal === '2026' && (!d.data_iso || !d.data_iso.startsWith('2026'))) return false;
+                if (periodVal === '2025' && (!d.data_iso || !d.data_iso.startsWith('2025'))) return false;
+
                 return true;
             });
 
@@ -624,7 +628,6 @@
             });
         }
 
-        // TABELA OPORTUNIDADES EM DETALHE
         function renderTable() {
             const tbody = document.getElementById('table-body');
             if (!tbody) return;
@@ -677,10 +680,6 @@
             renderTable();
             renderForecastChart();
         }
-
-        // =========================================================================
-        // RESTAURAÇÃO DOS 5 GRÁFICOS VISUAIS
-        // =========================================================================
 
         function renderAllCharts() {
             renderMonthlyChart();
@@ -810,7 +809,7 @@
         }
 
         // =========================================================================
-        // PUCA CRM INTEGRATION
+        // AUTENTICAÇÃO PUCA CRM VIA API
         // =========================================================================
         async function salvarEPuxarPucaCRM() {
             if (!isAdminLoggedIn) {
@@ -830,25 +829,46 @@
             localStorage.setItem(PUCA_HOST_KEY, host);
             localStorage.setItem(PUCA_USER_KEY, username);
 
+            const recordCountEl = document.getElementById('record-count');
+            if (recordCountEl) recordCountEl.innerText = "Autenticando no Puca CRM...";
+
             try {
+                // 1. LOGIN NA API PUCA BASE
                 const loginRes = await fetch(`https://${host}/puca-base-api/puca-user/system_user/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
 
-                if (!loginRes.ok) throw new Error("Usuário ou senha do Puca CRM inválidos.");
+                if (!loginRes.ok) {
+                    throw new Error(`Falha na autenticação: Usuário/senha incorretos ou erro ${loginRes.status}`);
+                }
+
                 let token = await loginRes.text();
                 token = token.replace(/^"|"$/g, '').trim();
 
+                if (!token) throw new Error("Token JWT não retornado pela API.");
+
+                if (recordCountEl) recordCountEl.innerText = "Buscando Oportunidades...";
+
+                // 2. BUSCA DE OPORTUNIDADES VIA POST /find
                 const dealsRes = await fetch(`https://${host}/puca-crm-api/deal/find`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ "from": "puca_crm_api_deal", "fields": ["puca_key", "title", "person_name", "user_name", "stage_name", "origin", "loss_reason", "created_at"], "where": { "and": [] } })
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ 
+                        "from": "puca_crm_api_deal", 
+                        "fields": ["puca_key", "title", "person_name", "user_name", "stage_name", "origin", "loss_reason", "created_at"], 
+                        "where": { "and": [] } 
+                    })
                 });
 
-                if (!dealsRes.ok) throw new Error("Erro ao buscar oportunidades no CRM Puca.");
+                if (!dealsRes.ok) throw new Error(`Erro ${dealsRes.status} ao consultar negócios no CRM.`);
                 const deals = await dealsRes.json();
+
+                if (!Array.isArray(deals)) throw new Error("Retorno da consulta de negócios não é um array válido.");
 
                 rawData = deals.map((item, idx) => ({
                     chave: item.puca_key || idx + 1,
@@ -859,19 +879,27 @@
                     usuario: item.user_name || 'Não Atribuído',
                     etapa: item.stage_name || 'Prospecção',
                     indicacao: item.origin || 'Não Informada',
-                    razao: item.person_name || item.title || '',
+                    razao: item.person_name || item.title || 'Sem Nome',
                     motivo_perda: item.loss_reason || ''
                 }));
 
+                const nowStr = new Date().toLocaleString('pt-BR');
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawData));
+                localStorage.setItem(LOCAL_STORAGE_META_KEY, `Puca CRM (${nowStr})`);
+
+                document.getElementById('import-time-val').innerText = `Puca CRM (${nowStr})`;
                 renderFullDashboardInstant();
+
                 alert(`Sucesso! ${rawData.length} oportunidades sincronizadas do Puca CRM.`);
 
             } catch (err) {
-                alert(`Erro no Puca CRM: ${err.message}`);
+                console.error("Erro na API Puca:", err);
+                if (recordCountEl) recordCountEl.innerText = "Erro ao conectar";
+                alert(`Erro na Conexão da API do Puca CRM:\n\n${err.message}\n\nVerifique se o domínio (ex: lifeapps.puca.app), usuário e senha estão corretos.`);
             }
         }
 
+        // GERENCIAMENTO ADMIN
         function openAdminModal() {
             if (isAdminLoggedIn) {
                 updateAdminUIState();
