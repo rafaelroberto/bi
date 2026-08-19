@@ -65,7 +65,7 @@
         </div>
     </header>
 
-    <!-- PAINEL ADMIN (APARECE APENAS APÓS LOGIN DO ADMIN) -->
+    <!-- PAINEL ADMIN (SÓ APARECE APÓS LOGIN DO ADMIN) -->
     <div id="admin-panel" class="hidden bg-slate-900 border-b border-slate-800 text-slate-200 py-4 px-4 sm:px-6 lg:px-8 space-y-4 no-pdf">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700">
             <div class="flex items-center space-x-3">
@@ -73,8 +73,8 @@
                     <i data-lucide="folder-git2" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h3 class="text-sm font-bold text-white">Gerenciamento & Integrações</h3>
-                    <p class="text-xs text-slate-400">Sincronize com a API do Puca CRM ou suba uma planilha personalizada.</p>
+                    <h3 class="text-sm font-bold text-white">Gerenciamento da Planilha Oficial</h3>
+                    <p class="text-xs text-slate-400">Suba uma nova planilha para atualizar o banco de dados e disponibilizar para todos os usuários.</p>
                 </div>
             </div>
 
@@ -100,7 +100,7 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <!-- Card de Integração Puca CRM (VISÍVEL APENAS QUANDO ADMIN LOGADO) -->
+        <!-- Card de Integração Puca CRM (OCULTO - EXCLUSIVO PARA ADMIN) -->
         <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
@@ -112,7 +112,7 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API e carregar as oportunidades.</p>
+                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API, obter o JWT e carregar as oportunidades.</p>
                     </div>
                 </div>
 
@@ -140,7 +140,7 @@
                         Limpar Todos os Filtros
                     </button>
                     <span id="record-count" class="text-xs bg-slate-100 text-slate-600 font-medium px-2.5 py-1 rounded-full border border-slate-200">
-                        Carregando registros...
+                        Iniciando registros...
                     </span>
                 </div>
             </div>
@@ -159,7 +159,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Período</label>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Período de Entrada</label>
                     <select id="filter-period" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
                         <option value="all" selected>Todo o Período</option>
                         <option value="2026">Ano 2026</option>
@@ -173,67 +173,131 @@
         <div id="dashboard-content" class="space-y-6">
             <!-- Cards de KPIs -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Negócios Ganhos</p>
-                    <h3 id="kpi-ganhos" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                <div onclick="drilldownKPI('Ganho')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-emerald-600">Negócios Ganhos 🔍</p>
+                        <h3 id="kpi-ganhos" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                        <p id="kpi-ganhos-pct" class="text-xs text-slate-400 mt-0.5">0% do total</p>
+                    </div>
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-600 group-hover:text-white">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                    </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Negócios Perdidos</p>
-                    <h3 id="kpi-perdidos" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+                <div onclick="drilldownKPI('Perdido')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-rose-600">Negócios Perdidos 🔍</p>
+                        <h3 id="kpi-perdidos" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+                        <p id="kpi-perdidos-pct" class="text-xs text-slate-400 mt-0.5">0% do total</p>
+                    </div>
+                    <div class="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-600 group-hover:text-white">
+                        <i data-lucide="x-circle" class="w-6 h-6"></i>
+                    </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Taxa de Conversão</p>
-                    <h3 id="kpi-conversion" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
+                <div onclick="drilldownKPI('Conversao')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-indigo-600">Taxa de Conversão 🔍</p>
+                        <h3 id="kpi-conversion" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Ganhos vs Perdidos</p>
+                    </div>
+                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white">
+                        <i data-lucide="trending-up" class="w-6 h-6"></i>
+                    </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Em Andamento</p>
-                    <h3 id="kpi-pipeline" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                <div onclick="drilldownKPI('Pipeline')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-amber-600">Em Andamento 🔍</p>
+                        <h3 id="kpi-pipeline" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Em negociação/proposta</p>
+                    </div>
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-600 group-hover:text-white">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total de Leads</p>
-                    <h3 id="kpi-total" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                <div onclick="drilldownKPI('Total')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-slate-800">Total de Leads 🔍</p>
+                        <h3 id="kpi-total" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Clique para ver todos</p>
+                    </div>
+                    <div class="p-3 bg-slate-100 text-slate-600 rounded-xl group-hover:bg-slate-800 group-hover:text-white">
+                        <i data-lucide="layers" class="w-6 h-6"></i>
+                    </div>
                 </div>
             </div>
 
-            <!-- Gráfico 1: Evolução Mensal -->
-            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                <h2 class="text-sm font-semibold text-slate-800 mb-3">Evolução Mensal de Oportunidades</h2>
-                <div class="h-64 relative">
+            <!-- GRÁFICO 1: Evolução Mensal com Tendência -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                        <i data-lucide="line-chart" class="w-4 h-4 text-indigo-600"></i>
+                        <span>Evolução Mensal: Criados, Ganhos, Perdidos e Tendência (%)</span>
+                    </h2>
+                </div>
+                <div class="h-72 relative">
                     <canvas id="chart-monthly-trend"></canvas>
                 </div>
             </div>
 
-            <!-- Gráfico 2 e 3: Funil Comercial e Forecast -->
+            <!-- GRÁFICOS 2 & 3: Funil Visual por Vendedor & Forecast do Mês -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Funil Comercial Visual</h2>
-                    <div id="funnel-visual-container" class="space-y-2"></div>
+                <!-- 2. Funil Comercial Visual -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                            <i data-lucide="filter" class="w-4 h-4 text-indigo-600"></i>
+                            <span>Funil de Vendas Visual</span>
+                        </h2>
+                        <select id="funnel-seller-filter" onchange="renderFunnelChart()" class="bg-slate-50 border border-slate-300 text-xs font-semibold rounded-lg px-2.5 py-1 text-slate-700">
+                            <option value="all">Visão Geral (Todos Vendedores)</option>
+                        </select>
+                    </div>
+                    <div id="funnel-visual-container" class="space-y-2 py-2"></div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Forecast do Mês</h2>
-                    <div class="h-48 relative">
+
+                <!-- 3. Forecast de Fechamento do Mês -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                            <i data-lucide="target" class="w-4 h-4 text-emerald-600"></i>
+                            <span>Forecast de Fechamento do Mês</span>
+                        </h2>
+                    </div>
+                    <div class="h-56 relative">
                         <canvas id="chart-forecast-performance"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Gráfico 4 e 5: Desempenho Vendedores e Motivos de Perda -->
+            <!-- GRÁFICOS 4 & 5: Comparativo por Vendedor e Motivos de Perda -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Comparativo de Vendedores</h2>
+                <!-- 4. Comparativo por Vendedor -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                            <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i>
+                            <span>Comparativo de Desempenho por Vendedor</span>
+                        </h2>
+                    </div>
                     <div class="h-64 relative">
                         <canvas id="chart-user-perf"></canvas>
                     </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                    <h2 class="text-sm font-semibold text-slate-800 mb-3">Ranking de Motivos de Perda</h2>
+
+                <!-- 5. Ranking de Motivos de Perda -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
+                            <span>Ranking de Motivos de Perda</span>
+                        </h2>
+                    </div>
                     <div class="h-64 relative">
                         <canvas id="chart-motivos-perda"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Tabela Oportunidades em Detalhe -->
+            <!-- Tabela Detalhada -->
             <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden space-y-3">
                 <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center space-x-2">
@@ -256,6 +320,7 @@
                                 <th onclick="sortTable('etapa')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600">Etapa <span id="sort-icon-etapa">↕</span></th>
                                 <th onclick="sortTable('indicacao')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600">Origem Unificada <span id="sort-icon-indicacao">↕</span></th>
                                 <th onclick="sortTable('motivo_perda')" class="px-4 py-3 cursor-pointer hover:bg-slate-100 hover:text-indigo-600">Motivo de Perda <span id="sort-icon-motivo_perda">↕</span></th>
+                                <th class="px-4 py-3 text-center w-24">⭐ Forecast</th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-slate-100 font-medium"></tbody>
@@ -282,7 +347,7 @@
             </div>
             <div>
                 <h3 class="text-lg font-bold text-slate-900">Autenticação do Administrador</h3>
-                <p class="text-xs text-slate-500 mt-1">Digite a senha para acessar as configurações de Admin.</p>
+                <p class="text-xs text-slate-500 mt-1">Digite a senha para acessar permissões de Admin.</p>
             </div>
             <div>
                 <input type="password" id="admin-pass-input" placeholder="Senha do Administrador" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-center font-medium text-slate-800 focus:outline-none">
@@ -296,10 +361,11 @@
         </div>
     </div>
 
-    <!-- Script de Execução e Gráficos -->
+    <!-- Script Principal da Aplicação -->
     <script>
         const LOCAL_STORAGE_KEY = 'bi_comercial_persisted_data';
         const LOCAL_STORAGE_META_KEY = 'bi_comercial_import_time';
+        const FORECAST_KEY = 'bi_comercial_forecast_deals';
         const ADMIN_PASS = 'admin123';
 
         const PUCA_HOST_KEY = 'bi_puca_crm_host';
@@ -307,6 +373,7 @@
 
         let rawData = [];
         let filteredData = [];
+        let forecastSet = new Set();
         let isAdminLoggedIn = false;
 
         let currentSortColumn = 'data_iso';
@@ -314,14 +381,17 @@
         let currentPage = 1;
         const rowsPerPage = 15;
 
+        // Instâncias Globais dos Gráficos
         let chartMonthlyTrend = null;
         let chartForecast = null;
         let chartUser = null;
         let chartMotivos = null;
 
+        // 1. INICIALIZAÇÃO IMEDIATA (0ms)
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();
             loadPucaCredentials();
+            loadForecastData();
             initDataset();
         });
 
@@ -330,6 +400,13 @@
             const user = localStorage.getItem(PUCA_USER_KEY) || '';
             if (document.getElementById('puca-host')) document.getElementById('puca-host').value = host;
             if (document.getElementById('puca-user')) document.getElementById('puca-user').value = user;
+        }
+
+        function loadForecastData() {
+            try {
+                const saved = localStorage.getItem(FORECAST_KEY);
+                if (saved) forecastSet = new Set(JSON.parse(saved));
+            } catch(e) { forecastSet = new Set(); }
         }
 
         function initDataset() {
@@ -360,6 +437,9 @@
                 { chave: 614029, titulo: "PESCADOS VEMAR", data: "05/01/2026", data_iso: "2026-01-05", year_month: "2026-01", usuario: "guilherme.santos", etapa: "Ganho", indicacao: "Milena Financeiro", razao: "PESCADOS VEMAR INDUSTRIA", motivo_perda: "" },
                 { chave: 615163, titulo: "Brasil Distribuidora", data: "16/04/2026", data_iso: "2026-04-16", year_month: "2026-04", usuario: "guilherme.santos", etapa: "Perdido", indicacao: "Lucas Neves", razao: "BRASIL DISTRIBUIDORA LTDA", motivo_perda: "Concorrente" }
             ];
+            // Inicializa alguns IDs no Forecast para teste visual do gráfico
+            forecastSet.add(613850);
+            forecastSet.add(614029);
         }
 
         function renderFullDashboardInstant() {
@@ -374,6 +454,8 @@
         function populateDropdowns() {
             const userSelect = document.getElementById('filter-user');
             const etapaSelect = document.getElementById('filter-etapa');
+            const sellerFunnelSelect = document.getElementById('funnel-seller-filter');
+
             if (!userSelect || !etapaSelect) return;
 
             const users = [...new Set(rawData.map(d => d.usuario))].sort();
@@ -381,6 +463,9 @@
 
             userSelect.innerHTML = '<option value="all">Todos os Vendedores</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
             etapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>' + etapas.map(e => `<option value="${e}">${e}</option>`).join('');
+            if (sellerFunnelSelect) {
+                sellerFunnelSelect.innerHTML = '<option value="all">Visão Geral (Todos Vendedores)</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
+            }
         }
 
         function applyFilters() {
@@ -429,6 +514,7 @@
             });
         }
 
+        // RENDERIZADOR SÍNCRONO E BLINDADO DA TABELA
         function renderTable() {
             const tbody = document.getElementById('table-body');
             if (!tbody) return;
@@ -439,11 +525,12 @@
             const pageItems = filteredData.slice(startIdx, endIdx);
 
             if (pageItems.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
                 return;
             }
 
             pageItems.forEach(item => {
+                const isForecast = forecastSet.has(item.chave);
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-slate-50 transition';
                 row.innerHTML = `
@@ -454,6 +541,11 @@
                     <td class="px-4 py-3"><span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-indigo-50 text-indigo-700">${item.etapa}</span></td>
                     <td class="px-4 py-3 font-semibold text-indigo-600">${item.indicacao}</td>
                     <td class="px-4 py-3 text-slate-500">${item.motivo_perda || '-'}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="toggleForecast(${item.chave})" class="px-2 py-1 text-xs rounded font-bold transition ${isForecast ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-400'}">
+                            ${isForecast ? '⭐ Sim' : '☆ Não'}
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
@@ -463,71 +555,135 @@
             document.getElementById('pagination-info').innerText = `Mostrando ${startIdx + 1} até ${Math.min(endIdx, filteredData.length)} de ${filteredData.length} registros`;
         }
 
+        function toggleForecast(id) {
+            if (!isAdminLoggedIn) {
+                alert("Apenas o Administrador pode alterar o Forecast.");
+                return;
+            }
+            if (forecastSet.has(id)) forecastSet.delete(id);
+            else forecastSet.add(id);
+            
+            localStorage.setItem(FORECAST_KEY, JSON.stringify([...forecastSet]));
+            renderTable();
+            renderForecastChart();
+        }
+
+        // =========================================================================
+        // RESTAURAÇÃO DOS 5 GRÁFICOS VISUAIS
+        // =========================================================================
+
         function renderAllCharts() {
             renderMonthlyChart();
-            renderFunnelVisual();
+            renderFunnelChart();
             renderForecastChart();
             renderUserChart();
             renderMotivosChart();
         }
 
+        // 1. Gráfico de Evolução Mensal com Tendência
         function renderMonthlyChart() {
             const months = [...new Set(filteredData.map(d => d.year_month))].sort();
-            const counts = months.map(m => filteredData.filter(d => d.year_month === m).length);
+            const criados = months.map(m => filteredData.filter(d => d.year_month === m).length);
+            const ganhos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'ganho').length);
+            const perdidos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'perdido').length);
 
             if (chartMonthlyTrend) chartMonthlyTrend.destroy();
             const ctx = document.getElementById('chart-monthly-trend').getContext('2d');
             chartMonthlyTrend = new Chart(ctx, {
-                type: 'line',
-                data: { labels: months, datasets: [{ label: 'Oportunidades', data: counts, borderColor: '#6366f1', tension: 0.3 }] },
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [
+                        { label: 'Ganhos', data: ganhos, backgroundColor: '#10b981' },
+                        { label: 'Perdidos', data: perdidos, backgroundColor: '#f43f5e' },
+                        { label: 'Total Criados', data: criados, backgroundColor: '#94a3b8' }
+                    ]
+                },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
-        function renderFunnelVisual() {
+        // 2. Visualizador do Funil por Vendedor
+        function renderFunnelChart() {
             const container = document.getElementById('funnel-visual-container');
             if (!container) return;
 
-            const stages = ['Prospecção', 'Qualificação', 'Demonstração', 'Proposta', 'Negociação', 'Ganho', 'Perdido'];
+            const sellerSelect = document.getElementById('funnel-seller-filter');
+            const selectedSeller = sellerSelect ? sellerSelect.value : 'all';
+
+            let funnelData = filteredData;
+            if (selectedSeller !== 'all') {
+                funnelData = filteredData.filter(d => d.usuario === selectedSeller);
+            }
+
+            const stages = [
+                { name: 'Prospecção', bg: 'bg-indigo-500' },
+                { name: 'Qualificação', bg: 'bg-indigo-600' },
+                { name: 'Demonstração', bg: 'bg-indigo-700' },
+                { name: 'Proposta', bg: 'bg-indigo-800' },
+                { name: 'Negociação', bg: 'bg-amber-500' },
+                { name: 'Ganho', bg: 'bg-emerald-600' },
+                { name: 'Perdido', bg: 'bg-rose-500' }
+            ];
+
+            const total = funnelData.length || 1;
             container.innerHTML = stages.map(st => {
-                const count = filteredData.filter(d => d.etapa.toLowerCase().includes(st.toLowerCase())).length;
+                const count = funnelData.filter(d => d.etapa.toLowerCase().includes(st.name.toLowerCase())).length;
+                const pct = ((count / total) * 100).toFixed(1);
                 return `
-                    <div class="flex items-center space-x-2 text-xs">
-                        <span class="w-24 font-medium text-slate-600">${st}</span>
-                        <div class="flex-1 bg-slate-100 h-4 rounded overflow-hidden">
-                            <div class="bg-indigo-600 h-full rounded" style="width: ${Math.min(count * 20, 100)}%;"></div>
+                    <div class="flex items-center space-x-3 text-xs">
+                        <span class="w-24 font-semibold text-slate-700 text-right truncate">${st.name}</span>
+                        <div class="flex-1 bg-slate-100 rounded-lg h-6 overflow-hidden flex items-center p-1">
+                            <div class="${st.bg} h-full rounded transition-all duration-500 flex items-center justify-end px-2" style="width: ${Math.max((count/total)*100, 10)}%;">
+                                <span class="text-[10px] font-bold text-white">${count}</span>
+                            </div>
                         </div>
-                        <span class="w-8 font-bold text-slate-700 text-right">${count}</span>
+                        <span class="w-12 font-bold text-slate-500">${pct}%</span>
                     </div>`;
             }).join('');
         }
 
+        // 3. Forecast do Mês (Rosca)
         function renderForecastChart() {
-            const ganhos = filteredData.filter(d => d.etapa.toLowerCase() === 'ganho').length;
-            const emAndamento = filteredData.filter(d => d.etapa.toLowerCase() !== 'ganho' && d.etapa.toLowerCase() !== 'perdido').length;
+            const forecastDeals = filteredData.filter(d => forecastSet.has(d.chave));
+            const ganhos = forecastDeals.filter(d => d.etapa.toLowerCase() === 'ganho').length;
+            const perdidos = forecastDeals.filter(d => d.etapa.toLowerCase() === 'perdido').length;
+            const emAndamento = forecastDeals.length - (ganhos + perdidos);
 
             if (chartForecast) chartForecast.destroy();
             const ctx = document.getElementById('chart-forecast-performance').getContext('2d');
             chartForecast = new Chart(ctx, {
                 type: 'doughnut',
-                data: { labels: ['Ganhos', 'Em Andamento'], datasets: [{ data: [ganhos, emAndamento], backgroundColor: ['#10b981', '#f59e0b'] }] },
-                options: { responsive: true, maintainAspectRatio: false }
+                data: {
+                    labels: ['Ganhos', 'Em Negociação', 'Perdidos'],
+                    datasets: [{ data: [ganhos, emAndamento, perdidos], backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
         }
 
+        // 4. Comparativo por Vendedor
         function renderUserChart() {
             const users = [...new Set(filteredData.map(d => d.usuario))];
-            const counts = users.map(u => filteredData.filter(d => d.usuario === u).length);
+            const ganhos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'ganho').length);
+            const perdidos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'perdido').length);
 
             if (chartUser) chartUser.destroy();
             const ctx = document.getElementById('chart-user-perf').getContext('2d');
             chartUser = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: users, datasets: [{ label: 'Total por Vendedor', data: counts, backgroundColor: '#6366f1' }] },
-                options: { responsive: true, maintainAspectRatio: false }
+                data: {
+                    labels: users,
+                    datasets: [
+                        { label: 'Ganhos', data: ganhos, backgroundColor: '#10b981' },
+                        { label: 'Perdidos', data: perdidos, backgroundColor: '#f43f5e' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
             });
         }
 
+        // 5. Ranking de Motivos de Perda
         function renderMotivosChart() {
             const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
             const motivosMap = {};
@@ -540,11 +696,17 @@
             const ctx = document.getElementById('chart-motivos-perda').getContext('2d');
             chartMotivos = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: Object.keys(motivosMap), datasets: [{ label: 'Motivos de Perda', data: Object.values(motivosMap), backgroundColor: '#f43f5e' }] },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                data: {
+                    labels: Object.keys(motivosMap),
+                    datasets: [{ label: 'Oportunidades Perdidas', data: Object.values(motivosMap), backgroundColor: '#f43f5e' }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
+        // =========================================================================
+        // MÓDULO PUCA CRM API (EXCLUSIVO ADMIN)
+        // =========================================================================
         async function salvarEPuxarPucaCRM() {
             if (!isAdminLoggedIn) {
                 alert("Apenas o Administrador pode sincronizar com o Puca CRM.");
@@ -575,14 +737,14 @@
                 let token = await loginRes.text();
                 token = token.replace(/^"|"$/g, '').trim();
 
-                // 2. BUSCAR NEGÓCIOS
+                // 2. BUSCAR NEGÓCIOS VIA POST /find
                 const dealsRes = await fetch(`https://${host}/puca-crm-api/deal/find`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ "from": "puca_crm_api_deal", "fields": ["puca_key", "title", "person_name", "user_name", "stage_name", "origin", "loss_reason", "created_at"], "where": { "and": [] } })
                 });
 
-                if (!dealsRes.ok) throw new Error("Erro ao buscar dados do CRM Puca.");
+                if (!dealsRes.ok) throw new Error("Erro ao buscar oportunidades no CRM Puca.");
                 const deals = await dealsRes.json();
 
                 rawData = deals.map((item, idx) => ({
@@ -603,10 +765,11 @@
                 alert(`Sucesso! ${rawData.length} oportunidades sincronizadas do Puca CRM.`);
 
             } catch (err) {
-                alert(`Erro ao conectar no Puca CRM: ${err.message}`);
+                alert(`Erro no Puca CRM: ${err.message}`);
             }
         }
 
+        // GERENCIAMENTO DE ADMIN E MODAIS
         function openAdminModal() {
             if (isAdminLoggedIn) {
                 updateAdminUIState();
@@ -625,6 +788,7 @@
                 isAdminLoggedIn = true;
                 closeAdminAuthModal();
                 updateAdminUIState();
+                renderTable();
             } else {
                 document.getElementById('admin-pass-error').classList.remove('hidden');
             }
@@ -633,6 +797,7 @@
         function logoutAdmin() {
             isAdminLoggedIn = false;
             updateAdminUIState();
+            renderTable();
         }
 
         function updateAdminUIState() {
@@ -673,6 +838,14 @@
             }
             applySortingToData();
             renderTable();
+        }
+
+        function drilldownKPI(type) {
+            let items = [...filteredData];
+            if (type === 'Ganho') items = filteredData.filter(d => d.etapa.toLowerCase() === 'ganho');
+            else if (type === 'Perdido') items = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
+            else if (type === 'Pipeline') items = filteredData.filter(d => d.etapa.toLowerCase() !== 'ganho' && d.etapa.toLowerCase() !== 'perdido');
+            alert(`KPI ${type}: ${items.length} oportunidades registradas.`);
         }
     </script>
 </body>
