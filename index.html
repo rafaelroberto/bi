@@ -1520,8 +1520,14 @@
             applyFilters();
         }
 
+        
+        // Função auxiliar para remover acentos e padronizar comparações
+        function removeAccents(str) {
+            return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        }
+
         function applyFilters() {
-            if (rawData.length === 0) {
+            if (!rawData || rawData.length === 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('empty-title').innerText = "Nenhuma planilha salva no momento";
                 document.getElementById('empty-desc').innerText = "O Administrador ainda não salvou nenhuma planilha no painel.";
@@ -1529,37 +1535,63 @@
                 return;
             }
 
-            const etapaVal = document.getElementById('filter-etapa') ? document.getElementById('filter-etapa').value : 'all';
-            const userVal = document.getElementById('filter-user') ? document.getElementById('filter-user').value : 'all';
-            const exactDateVal = document.getElementById('filter-exact-date') ? document.getElementById('filter-exact-date').value : '';
-            const periodVal = document.getElementById('filter-period') ? document.getElementById('filter-period').value : 'all';
-            const startDateVal = document.getElementById('filter-start-date') ? document.getElementById('filter-start-date').value : '';
-            const endDateVal = document.getElementById('filter-end-date') ? document.getElementById('filter-end-date').value : '';
-            const searchVal = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : '';
+            const etapaEl = document.getElementById('filter-etapa');
+            const etapaVal = etapaEl ? etapaEl.value : 'all';
+
+            const userEl = document.getElementById('filter-user');
+            const userVal = userEl ? userEl.value : 'all';
+
+            const exactDateEl = document.getElementById('filter-exact-date');
+            const exactDateVal = exactDateEl ? exactDateEl.value : '';
+
+            const periodEl = document.getElementById('filter-period');
+            const periodVal = periodEl ? periodEl.value : 'all';
+
+            const startDateEl = document.getElementById('filter-start-date');
+            const startDateVal = startDateEl ? startDateEl.value : '';
+
+            const endDateEl = document.getElementById('filter-end-date');
+            const endDateVal = endDateEl ? endDateEl.value : '';
+
+            const searchEl = document.getElementById('search-input');
+            const searchVal = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
             const now = new Date();
             const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             let lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             const lastMonthStr = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-            filteredData = rawData.filter(d => {
-                // 1. Filtro por Etapa
-                if (etapaVal !== 'all' && d.etapa.toLowerCase().trim() !== etapaVal.toLowerCase().trim()) return false;
+            // Mapeamento dos nomes de origens selecionados limpos de acentos
+            const selectedOriginsClean = (selectedOrigins || []).map(o => removeAccents(o));
 
-                // 2. Filtro por Vendedor
-                if (userVal !== 'all' && d.usuario !== userVal) return false;
+            filteredData = rawData.filter(d => {
+                // 1. Filtro por Etapa (Insensível a acentos/caixa)
+                if (etapaVal && etapaVal !== 'all') {
+                    if (removeAccents(d.etapa) !== removeAccents(etapaVal)) return false;
+                }
+
+                // 2. Filtro por Vendedor (Insensível a acentos/caixa)
+                if (userVal && userVal !== 'all') {
+                    if (removeAccents(d.usuario) !== removeAccents(userVal)) return false;
+                }
 
                 // 3. Filtro por Origens (Multi-seleção)
-                if (selectedOrigins.length > 0 && !selectedOrigins.includes(d.indicacao)) return false;
+                if (selectedOriginsClean.length > 0) {
+                    const origClean = removeAccents(d.indicacao);
+                    if (!selectedOriginsClean.includes(origClean)) return false;
+                }
 
-                // 4. Data Específica
-                if (exactDateVal && d.data_iso !== exactDateVal) return false;
+                // 4. Data Específica da Etapa
+                if (exactDateVal && exactDateVal.trim() !== '') {
+                    if (d.data_iso !== exactDateVal.trim()) return false;
+                }
 
-                // 5. Busca por texto
-                if (searchVal) {
-                    const matchTitle = String(d.titulo).toLowerCase().includes(searchVal);
-                    const matchRazao = String(d.razao).toLowerCase().includes(searchVal);
-                    const matchChave = String(d.chave).toLowerCase().includes(searchVal);
+                // 5. Busca por texto livre (Título, Razão Social ou Chave)
+                if (searchVal && searchVal !== '') {
+                    const sNorm = removeAccents(searchVal);
+                    const matchTitle = removeAccents(d.titulo).includes(sNorm);
+                    const matchRazao = removeAccents(d.razao).includes(sNorm);
+                    const matchChave = String(d.chave).toLowerCase().includes(sNorm);
                     if (!matchTitle && !matchRazao && !matchChave) return false;
                 }
 
@@ -1580,8 +1612,8 @@
 
             if (filteredData.length === 0 && rawData.length > 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('empty-title').innerText = "Nenhum dado encontrado para os filtros selecionados";
-                document.getElementById('empty-desc').innerText = "Tente redefinir os filtros para visualizar os dados completos.";
+                document.getElementById('empty-title').innerText = "Nenhum dado encontrado para a combinação de filtros selecionada";
+                document.getElementById('empty-desc').innerText = "Clique em 'Limpar Todos os Filtros' para reexibir todos os registros do painel.";
                 document.getElementById('dashboard-content').classList.add('hidden');
                 document.getElementById('record-count').innerText = "0 registros filtrados";
                 return;
