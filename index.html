@@ -74,20 +74,20 @@
                 </div>
                 <div>
                     <h3 class="text-sm font-bold text-white">Gerenciamento da Planilha Oficial</h3>
-                    <p class="text-xs text-slate-400">Suba uma nova planilha para atualizar os dados do painel.</p>
+                    <p class="text-xs text-slate-400">Suba uma nova planilha (Excel/CSV) para atualizar a base de dados comercial do painel.</p>
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
                 <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
                     <i data-lucide="upload" class="w-4 h-4"></i>
-                    <span>Subir Excel / Planilha</span>
+                    <span>Subir Nova Planilha</span>
                 </label>
                 <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
 
                 <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1.5">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    <span>Excluir Dados Salvos</span>
+                    <span>Excluir Planilha Atual</span>
                 </button>
 
                 <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition">
@@ -99,35 +99,6 @@
 
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-
-        <!-- Card de Integração Puca CRM -->
-        <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2 bg-indigo-600 rounded-lg flex-shrink-0">
-                        <i data-lucide="key-round" class="w-5 h-5 text-white"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-sm font-bold text-white flex items-center space-x-2">
-                            <span>Autenticação API & Sincronização Puca CRM</span>
-                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
-                        </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar a busca.</p>
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
-                    <input type="text" id="puca-host" placeholder="lifeapps.puca.app" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-40 font-mono">
-                    <input type="text" id="puca-user" placeholder="Usuário Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-32 font-mono">
-                    <input type="password" id="puca-pass" placeholder="Senha Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-32 font-mono">
-                    <input type="text" id="puca-proxy" placeholder="Proxy (Opcional)" class="bg-slate-800 border border-slate-700 text-slate-400 text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono" title="Opcional: Cole seu Worker do Cloudflare para contornar travamentos do GitHub Pages em definitivo">
-                    <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm whitespace-nowrap w-full sm:w-auto">
-                        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
-                        <span>Sincronizar via Login Puca</span>
-                    </button>
-                </div>
-            </div>
-        </div>
 
         <!-- Barra de Filtros Globais Unificada -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/80 space-y-4 no-pdf">
@@ -378,11 +349,6 @@
         const FORECAST_KEY = 'bi_comercial_forecast_deals';
         const ADMIN_PASS = 'admin123';
 
-        const PUCA_HOST_KEY = 'bi_puca_crm_host';
-        const PUCA_USER_KEY = 'bi_puca_crm_user';
-        const PUCA_PROXY_KEY = 'bi_puca_crm_proxy';
-        const PUCA_DEFAULT_PASS = '92f24Uh^W218';
-
         let rawData = [];
         let filteredData = [];
         let selectedOrigins = [];
@@ -401,7 +367,6 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();
-            loadPucaCredentials();
             loadForecastData();
             setupExcelUpload();
             initDataset();
@@ -415,21 +380,6 @@
             });
         });
 
-        function sanitizeHost(inputHost) {
-            if (!inputHost) return 'lifeapps.puca.app';
-            return inputHost.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
-        }
-
-        function loadPucaCredentials() {
-            const host = localStorage.getItem(PUCA_HOST_KEY) || 'lifeapps.puca.app';
-            const user = localStorage.getItem(PUCA_USER_KEY) || 'rafael.nascimento';
-            const proxy = localStorage.getItem(PUCA_PROXY_KEY) || '';
-            if (document.getElementById('puca-host')) document.getElementById('puca-host').value = host;
-            if (document.getElementById('puca-user')) document.getElementById('puca-user').value = user;
-            if (document.getElementById('puca-pass')) document.getElementById('puca-pass').value = PUCA_DEFAULT_PASS;
-            if (document.getElementById('puca-proxy')) document.getElementById('puca-proxy').value = proxy;
-        }
-
         function loadForecastData() {
             try {
                 const saved = localStorage.getItem(FORECAST_KEY);
@@ -440,10 +390,15 @@
         function initDataset() {
             try {
                 const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+                const savedTime = localStorage.getItem(LOCAL_STORAGE_META_KEY);
+
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     if (Array.isArray(parsed) && parsed.length > 0) {
                         rawData = parsed;
+                        if (savedTime) {
+                            document.getElementById('import-time-val').innerText = savedTime;
+                        }
                     } else {
                         loadDefaultDataset();
                     }
@@ -467,6 +422,7 @@
             ];
             forecastSet.add(613850);
             forecastSet.add(614029);
+            document.getElementById('import-time-val').innerText = "Base Padrão";
         }
 
         function renderFullDashboardInstant() {
@@ -679,7 +635,7 @@
         }
 
         // =========================================================================
-        // RENDERING DOS 5 GRÁFICOS VISUAIS (CHART.JS)
+        // GRÁFICOS VISUAIS (CHART.JS)
         // =========================================================================
         function renderAllCharts() {
             renderMonthlyChart();
@@ -816,6 +772,9 @@
             });
         }
 
+        // =========================================================================
+        // UPLOAD DA PLANILHA EXCEL/CSV COM DATA E HORA DE IMPORTAÇÃO
+        // =========================================================================
         function setupExcelUpload() {
             const fileInput = document.getElementById('excel-upload');
             if (!fileInput) return;
@@ -851,17 +810,24 @@
                             motivo_perda: row['Motivo de Perda'] || ''
                         }));
 
-                        const nowStr = new Date().toLocaleString('pt-BR');
-                        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawData));
-                        localStorage.setItem(LOCAL_STORAGE_META_KEY, `Planilha Excel (${nowStr})`);
+                        // DATA E HORA EXATA DO SUBIMENTO DA PLANILHA
+                        const now = new Date();
+                        const dataHoraFormatted = now.toLocaleDateString('pt-BR') + ' às ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        const timeBadgeText = `${file.name} (${dataHoraFormatted})`;
 
-                        document.getElementById('import-time-val').innerText = `Excel (${nowStr})`;
+                        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawData));
+                        localStorage.setItem(LOCAL_STORAGE_META_KEY, timeBadgeText);
+
+                        document.getElementById('import-time-val').innerText = timeBadgeText;
                         renderFullDashboardInstant();
-                        alert(`Planilha importada com sucesso! ${rawData.length} registros carregados.`);
+                        alert(`Planilha "${file.name}" subida com sucesso!
+
+Data/Hora: ${dataHoraFormatted}
+Registros: ${rawData.length}`);
 
                     } catch (err) {
                         console.error("Erro ao ler Excel:", err);
-                        alert("Erro ao processar o arquivo Excel. Verifique a estrutura das colunas.");
+                        alert("Erro ao processar a planilha. Verifique o formato do arquivo.");
                     }
                 };
                 reader.readAsArrayBuffer(file);
@@ -870,17 +836,17 @@
 
         function deleteCustomPlanilha() {
             if (!isAdminLoggedIn) {
-                alert("Apenas o Administrador pode excluir os dados salvos.");
+                alert("Apenas o Administrador pode excluir os dados da planilha.");
                 return;
             }
 
-            if (confirm("Tem certeza que deseja apagar a planilha salva? O painel voltará para a base padrão.")) {
+            if (confirm("Tem certeza que deseja apagar a planilha salva? O painel voltará para a base de dados padrão.")) {
                 localStorage.removeItem(LOCAL_STORAGE_KEY);
                 localStorage.removeItem(LOCAL_STORAGE_META_KEY);
                 loadDefaultDataset();
                 document.getElementById('import-time-val').innerText = "Base Padrão";
                 renderFullDashboardInstant();
-                alert("Dados salvos removidos. Base restaurada para o padrão.");
+                alert("Planilha removida com sucesso. Base de dados padrão restaurada.");
             }
         }
 
@@ -912,150 +878,6 @@
                 btn.disabled = false;
                 alert("Ocorreu uma falha ao gerar o PDF. Tente novamente.");
             });
-        }
-
-        // =========================================================================
-        // REQUISIÇÕES DA API COM SUPORTE A PROXY PERSONALIZADO OU ENCAMINHAMENTO DIRETO
-        // =========================================================================
-        async function fetchWithCorsFallback(targetUrl, options) {
-            const customProxy = document.getElementById('puca-proxy') ? document.getElementById('puca-proxy').value.trim() : '';
-
-            // Se o admin preencheu um Worker do Cloudflare próprio, usa ele prioritariamente
-            if (customProxy) {
-                const proxyEndpoint = customProxy.replace(/\/$/, '') + new URL(targetUrl).pathname;
-                return await fetch(proxyEndpoint, options);
-            }
-
-            try {
-                // Tenta a requisição HTTP direta primeiro
-                const response = await fetch(targetUrl, options);
-                if (response.ok) return response;
-                throw new Error(`HTTP Status ${response.status}`);
-            } catch (err) {
-                // Fallbacks usando proxies com encaminhamento de header x-target-host
-                const urlObj = new URL(targetUrl);
-                const customHeaders = new Headers(options.headers || {});
-                customHeaders.set("x-target-host", urlObj.host);
-
-                const proxy1 = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-                try {
-                    const resProxy = await fetch(proxy1, { ...options, headers: customHeaders });
-                    if (resProxy.ok) return resProxy;
-                } catch(e) {}
-                
-                const proxy2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-                return await fetch(proxy2, { ...options, headers: customHeaders });
-            }
-        }
-
-        async function salvarEPuxarPucaCRM() {
-            if (!isAdminLoggedIn) {
-                alert("Apenas o Administrador pode sincronizar com o Puca CRM.");
-                return;
-            }
-
-            const rawHost = document.getElementById('puca-host').value;
-            const host = sanitizeHost(rawHost);
-            const username = document.getElementById('puca-user').value.trim();
-            const password = document.getElementById('puca-pass').value.trim();
-            const proxyInput = document.getElementById('puca-proxy') ? document.getElementById('puca-proxy').value.trim() : '';
-
-            if (!host || !username || !password) {
-                alert("Por favor, preencha Host, Usuário e Senha do Puca CRM.");
-                return;
-            }
-
-            localStorage.setItem(PUCA_HOST_KEY, host);
-            localStorage.setItem(PUCA_USER_KEY, username);
-            if (proxyInput) localStorage.setItem(PUCA_PROXY_KEY, proxyInput);
-
-            const recordCountEl = document.getElementById('record-count');
-            if (recordCountEl) recordCountEl.innerText = "Autenticando no Puca CRM...";
-
-            try {
-                // 1. AUTENTICAÇÃO NO PUCA BASE API
-                const loginUrl = `https://${host}/puca-base-api/puca-user/system_user/login`;
-                const loginRes = await fetchWithCorsFallback(loginUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                if (!loginRes.ok) throw new Error("Usuário ou senha do Puca CRM inválidos.");
-                
-                let tokenText = await loginRes.text();
-                let token = "";
-                
-                try {
-                    const tokenJson = JSON.parse(tokenText);
-                    token = typeof tokenJson === 'string' ? tokenJson : (tokenJson.token || tokenJson.jwt || tokenText);
-                } catch(e) {
-                    token = tokenText;
-                }
-
-                token = token.replace(/^"|"$/g, '').replace(/[\r\n]+/g, '').trim();
-
-                if (!token || token.length < 20) throw new Error("Token JWT não retornado pela API.");
-
-                if (recordCountEl) recordCountEl.innerText = "Buscando Oportunidades...";
-
-                // 2. BUSCA DE OPORTUNIDADES VIA POST /puca-crm-api/deal/find
-                const findUrl = `https://${host}/puca-crm-api/deal/find`;
-                const dealsRes = await fetchWithCorsFallback(findUrl, {
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'PucaAuthorization': token,
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ 
-                        "from": "puca_crm_api_deal", 
-                        "fields": [
-                            "puca_key", 
-                            "title", 
-                            "person_name", 
-                            "user_name", 
-                            "stage_name", 
-                            "origin", 
-                            "loss_reason", 
-                            "created_at"
-                        ], 
-                        "where": { "and": [] } 
-                    })
-                });
-
-                if (!dealsRes.ok) throw new Error(`Status ${dealsRes.status} na consulta do CRM.`);
-                const deals = await dealsRes.json();
-
-                if (!Array.isArray(deals)) throw new Error("A resposta do CRM não retornou uma lista válida de negócios.");
-
-                rawData = deals.map((item, idx) => ({
-                    chave: item.puca_key || idx + 1,
-                    titulo: item.title || '',
-                    data: item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : '',
-                    data_iso: item.created_at ? item.created_at.split('T')[0] : '',
-                    year_month: item.created_at ? item.created_at.substring(0, 7) : '',
-                    usuario: item.user_name || 'Não Atribuído',
-                    etapa: item.stage_name || 'Prospecção',
-                    indicacao: item.origin || 'Não Informada',
-                    razao: item.person_name || item.title || 'Sem Nome',
-                    motivo_perda: item.loss_reason || ''
-                }));
-
-                const nowStr = new Date().toLocaleString('pt-BR');
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawData));
-                localStorage.setItem(LOCAL_STORAGE_META_KEY, `Puca CRM (${nowStr})`);
-
-                document.getElementById('import-time-val').innerText = `Puca CRM (${nowStr})`;
-                renderFullDashboardInstant();
-
-                alert(`Sucesso! ${rawData.length} oportunidades sincronizadas do Puca CRM.`);
-
-            } catch (err) {
-                console.error("Erro na API Puca:", err);
-                if (recordCountEl) recordCountEl.innerText = "Erro ao conectar";
-                alert(`Erro na Conexão com o Puca CRM:\n\n${err.message}`);
-            }
         }
 
         // GERENCIAMENTO ADMIN
@@ -1090,16 +912,13 @@
         }
 
         function updateAdminUIState() {
-            const pucaCard = document.getElementById('puca-integration-card');
             const adminPanel = document.getElementById('admin-panel');
             const adminBadge = document.getElementById('admin-badge');
 
             if (isAdminLoggedIn) {
-                if (pucaCard) pucaCard.classList.remove('hidden');
                 if (adminPanel) adminPanel.classList.remove('hidden');
                 if (adminBadge) adminBadge.classList.remove('hidden');
             } else {
-                if (pucaCard) pucaCard.classList.add('hidden');
                 if (adminPanel) adminPanel.classList.add('hidden');
                 if (adminBadge) adminBadge.classList.add('hidden');
             }
@@ -1131,14 +950,6 @@
 
         function forceRefreshPanel() {
             initDataset();
-        }
-
-        function drilldownKPI(type) {
-            let items = [...filteredData];
-            if (type === 'Ganho') items = filteredData.filter(d => d.etapa.toLowerCase() === 'ganho');
-            else if (type === 'Perdido') items = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
-            else if (type === 'Pipeline') items = filteredData.filter(d => d.etapa.toLowerCase() !== 'ganho' && d.etapa.toLowerCase() !== 'perdido');
-            alert(`KPI ${type}: ${items.length} oportunidades registradas.`);
         }
     </script>
 </body>
