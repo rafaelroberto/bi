@@ -112,7 +112,7 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API e carregar as oportunidades.</p>
+                        <p class="text-xs text-slate-400">Insira Host (somente o domínio, ex: lifeapps.puca.app), Usuário e Senha do Puca.</p>
                     </div>
                 </div>
 
@@ -146,33 +146,27 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-                <!-- Etapa do Funil -->
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Etapa do Funil</label>
-                    <select id="filter-etapa" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <select id="filter-etapa" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none text-slate-700 font-medium">
                         <option value="all" selected>Todas as Etapas</option>
                     </select>
                 </div>
-
-                <!-- Vendedor (Usuário) -->
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Vendedor (Usuário)</label>
-                    <select id="filter-user" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <select id="filter-user" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none text-slate-700 font-medium">
                         <option value="all">Todos os Vendedores</option>
                     </select>
                 </div>
-
-                <!-- Filtro de Origem com Pesquisa -->
                 <div class="relative">
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Origem / Indicação</label>
-                    <button id="origin-multiselect-btn" onclick="toggleOriginDropdown()" type="button" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <button id="origin-multiselect-btn" onclick="toggleOriginDropdown()" type="button" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs text-left flex items-center justify-between focus:outline-none text-slate-700 font-medium">
                         <span id="origin-multiselect-label" class="truncate">Todas as Origens</span>
                         <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 ml-1 flex-shrink-0"></i>
                     </button>
-
                     <div id="origin-dropdown-menu" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2 max-h-72 flex flex-col">
                         <div class="space-y-2 pb-2 border-b border-slate-100">
-                            <input type="text" id="origin-search-input" onkeyup="filterOriginCheckboxes(this.value)" placeholder="🔍 Buscar origem..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input type="text" id="origin-search-input" onkeyup="filterOriginCheckboxes(this.value)" placeholder="🔍 Buscar origem..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium">
                             <div class="flex items-center justify-between text-xs font-medium">
                                 <button onclick="selectAllOrigins(true)" type="button" class="text-indigo-600 hover:text-indigo-800">Selecionar Todos</button>
                                 <button onclick="selectAllOrigins(false)" type="button" class="text-slate-400 hover:text-slate-600">Limpar Seleção</button>
@@ -181,11 +175,9 @@
                         <div id="origin-checkbox-list" class="space-y-1.5 text-xs overflow-y-auto custom-scrollbar flex-1 max-h-48"></div>
                     </div>
                 </div>
-
-                <!-- Período de Entrada (Com Este Mês e Mês Passado) -->
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Período de Entrada</label>
-                    <select id="filter-period" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <select id="filter-period" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs focus:outline-none text-slate-700 font-medium">
                         <option value="all" selected>Todo o Período</option>
                         <option value="this-month">Este Mês</option>
                         <option value="last-month">Mês Passado</option>
@@ -198,7 +190,6 @@
 
         <!-- Dashboard Content -->
         <div id="dashboard-content" class="space-y-6">
-            <!-- Cards de KPIs -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div onclick="drilldownKPI('Ganho')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
                     <div>
@@ -248,74 +239,6 @@
                     </div>
                     <div class="p-3 bg-slate-100 text-slate-600 rounded-xl group-hover:bg-slate-800 group-hover:text-white">
                         <i data-lucide="layers" class="w-6 h-6"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- GRÁFICO 1: Evolução Mensal -->
-            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
-                        <i data-lucide="line-chart" class="w-4 h-4 text-indigo-600"></i>
-                        <span>Evolução Mensal: Criados, Ganhos, Perdidos e Tendência (%)</span>
-                    </h2>
-                </div>
-                <div class="h-72 relative">
-                    <canvas id="chart-monthly-trend"></canvas>
-                </div>
-            </div>
-
-            <!-- GRÁFICOS 2 & 3: Funil e Forecast -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
-                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
-                            <i data-lucide="filter" class="w-4 h-4 text-indigo-600"></i>
-                            <span>Funil de Vendas Visual</span>
-                        </h2>
-                        <select id="funnel-seller-filter" onchange="renderFunnelChart()" class="bg-slate-50 border border-slate-300 text-xs font-semibold rounded-lg px-2.5 py-1 text-slate-700">
-                            <option value="all">Visão Geral (Todos Vendedores)</option>
-                        </select>
-                    </div>
-                    <div id="funnel-visual-container" class="space-y-2 py-2"></div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
-                            <i data-lucide="target" class="w-4 h-4 text-emerald-600"></i>
-                            <span>Forecast de Fechamento do Mês</span>
-                        </h2>
-                    </div>
-                    <div class="h-56 relative">
-                        <canvas id="chart-forecast-performance"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- GRÁFICOS 4 & 5: Vendedores e Motivos de Perda -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
-                            <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i>
-                            <span>Comparativo de Desempenho por Vendedor</span>
-                        </h2>
-                    </div>
-                    <div class="h-64 relative">
-                        <canvas id="chart-user-perf"></canvas>
-                    </div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h2 class="text-sm font-semibold text-slate-800 flex items-center space-x-2">
-                            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
-                            <span>Ranking de Motivos de Perda</span>
-                        </h2>
-                    </div>
-                    <div class="h-64 relative">
-                        <canvas id="chart-motivos-perda"></canvas>
                     </div>
                 </div>
             </div>
@@ -384,7 +307,6 @@
         </div>
     </div>
 
-    <!-- Script Principal -->
     <script>
         const LOCAL_STORAGE_KEY = 'bi_comercial_persisted_data';
         const LOCAL_STORAGE_META_KEY = 'bi_comercial_import_time';
@@ -405,11 +327,6 @@
         let currentPage = 1;
         const rowsPerPage = 15;
 
-        let chartMonthlyTrend = null;
-        let chartForecast = null;
-        let chartUser = null;
-        let chartMotivos = null;
-
         document.addEventListener("DOMContentLoaded", () => {
             lucide.createIcons();
             loadPucaCredentials();
@@ -424,6 +341,11 @@
                 }
             });
         });
+
+        function sanitizeHost(inputHost) {
+            if (!inputHost) return 'lifeapps.puca.app';
+            return inputHost.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+        }
 
         function loadPucaCredentials() {
             const host = localStorage.getItem(PUCA_HOST_KEY) || 'lifeapps.puca.app';
@@ -483,13 +405,11 @@
             applySortingToData();
             updateKPIs();
             renderTable();
-            renderAllCharts();
         }
 
         function populateDropdowns() {
             const userSelect = document.getElementById('filter-user');
             const etapaSelect = document.getElementById('filter-etapa');
-            const sellerFunnelSelect = document.getElementById('funnel-seller-filter');
 
             if (!userSelect || !etapaSelect) return;
 
@@ -498,9 +418,6 @@
 
             userSelect.innerHTML = '<option value="all">Todos os Vendedores</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
             etapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>' + etapas.map(e => `<option value="${e}">${e}</option>`).join('');
-            if (sellerFunnelSelect) {
-                sellerFunnelSelect.innerHTML = '<option value="all">Visão Geral (Todos Vendedores)</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
-            }
         }
 
         function toggleOriginDropdown() {
@@ -587,7 +504,6 @@
                 if (selectedOrigins.length > 0 && !selectedOrigins.includes(d.indicacao)) return false;
                 if (searchVal && !d.razao.toLowerCase().includes(searchVal) && !d.titulo.toLowerCase().includes(searchVal) && !String(d.chave).includes(searchVal)) return false;
 
-                // Lógica de Período
                 if (periodVal === 'this-month' && (!d.data_iso || !d.data_iso.startsWith(thisMonthStr))) return false;
                 if (periodVal === 'last-month' && (!d.data_iso || !d.data_iso.startsWith(lastMonthStr))) return false;
                 if (periodVal === '2026' && (!d.data_iso || !d.data_iso.startsWith('2026'))) return false;
@@ -600,7 +516,6 @@
             applySortingToData();
             updateKPIs();
             renderTable();
-            renderAllCharts();
         }
 
         function updateKPIs() {
@@ -678,146 +593,31 @@
             
             localStorage.setItem(FORECAST_KEY, JSON.stringify([...forecastSet]));
             renderTable();
-            renderForecastChart();
         }
 
-        function renderAllCharts() {
-            renderMonthlyChart();
-            renderFunnelChart();
-            renderForecastChart();
-            renderUserChart();
-            renderMotivosChart();
-        }
-
-        function renderMonthlyChart() {
-            const months = [...new Set(filteredData.map(d => d.year_month))].sort();
-            const criados = months.map(m => filteredData.filter(d => d.year_month === m).length);
-            const ganhos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'ganho').length);
-            const perdidos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'perdido').length);
-
-            if (chartMonthlyTrend) chartMonthlyTrend.destroy();
-            const ctx = document.getElementById('chart-monthly-trend').getContext('2d');
-            chartMonthlyTrend = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: months,
-                    datasets: [
-                        { label: 'Ganhos', data: ganhos, backgroundColor: '#10b981' },
-                        { label: 'Perdidos', data: perdidos, backgroundColor: '#f43f5e' },
-                        { label: 'Total Criados', data: criados, backgroundColor: '#94a3b8' }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-
-        function renderFunnelChart() {
-            const container = document.getElementById('funnel-visual-container');
-            if (!container) return;
-
-            const sellerSelect = document.getElementById('funnel-seller-filter');
-            const selectedSeller = sellerSelect ? sellerSelect.value : 'all';
-
-            let funnelData = filteredData;
-            if (selectedSeller !== 'all') {
-                funnelData = filteredData.filter(d => d.usuario === selectedSeller);
+        // =========================================================================
+        // PUCA CRM API (COM TRATAMENTO DE CORS E SANITIZAÇÃO DE HOST)
+        // =========================================================================
+        async function fetchWithCorsFallback(url, options) {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) return response;
+                throw new Error(`Status ${response.status}`);
+            } catch (err) {
+                // Fallback usando proxy CORS para hospedeiros remotos (ex: GitHub Pages)
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                return await fetch(proxyUrl, options);
             }
-
-            const stages = [
-                { name: 'Prospecção', bg: 'bg-indigo-500' },
-                { name: 'Qualificação', bg: 'bg-indigo-600' },
-                { name: 'Demonstração', bg: 'bg-indigo-700' },
-                { name: 'Proposta', bg: 'bg-indigo-800' },
-                { name: 'Negociação', bg: 'bg-amber-500' },
-                { name: 'Ganho', bg: 'bg-emerald-600' },
-                { name: 'Perdido', bg: 'bg-rose-500' }
-            ];
-
-            const total = funnelData.length || 1;
-            container.innerHTML = stages.map(st => {
-                const count = funnelData.filter(d => d.etapa.toLowerCase().includes(st.name.toLowerCase())).length;
-                const pct = ((count / total) * 100).toFixed(1);
-                return `
-                    <div class="flex items-center space-x-3 text-xs">
-                        <span class="w-24 font-semibold text-slate-700 text-right truncate">${st.name}</span>
-                        <div class="flex-1 bg-slate-100 rounded-lg h-6 overflow-hidden flex items-center p-1">
-                            <div class="${st.bg} h-full rounded transition-all duration-500 flex items-center justify-end px-2" style="width: ${Math.max((count/total)*100, 10)}%;">
-                                <span class="text-[10px] font-bold text-white">${count}</span>
-                            </div>
-                        </div>
-                        <span class="w-12 font-bold text-slate-500">${pct}%</span>
-                    </div>`;
-            }).join('');
         }
 
-        function renderForecastChart() {
-            const forecastDeals = filteredData.filter(d => forecastSet.has(d.chave));
-            const ganhos = forecastDeals.filter(d => d.etapa.toLowerCase() === 'ganho').length;
-            const perdidos = forecastDeals.filter(d => d.etapa.toLowerCase() === 'perdido').length;
-            const emAndamento = forecastDeals.length - (ganhos + perdidos);
-
-            if (chartForecast) chartForecast.destroy();
-            const ctx = document.getElementById('chart-forecast-performance').getContext('2d');
-            chartForecast = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Ganhos', 'Em Negociação', 'Perdidos'],
-                    datasets: [{ data: [ganhos, emAndamento, perdidos], backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'] }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-            });
-        }
-
-        function renderUserChart() {
-            const users = [...new Set(filteredData.map(d => d.usuario))];
-            const ganhos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'ganho').length);
-            const perdidos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'perdido').length);
-
-            if (chartUser) chartUser.destroy();
-            const ctx = document.getElementById('chart-user-perf').getContext('2d');
-            chartUser = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: users,
-                    datasets: [
-                        { label: 'Ganhos', data: ganhos, backgroundColor: '#10b981' },
-                        { label: 'Perdidos', data: perdidos, backgroundColor: '#f43f5e' }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
-            });
-        }
-
-        function renderMotivosChart() {
-            const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
-            const motivosMap = {};
-            perdidos.forEach(d => {
-                const m = d.motivo_perda || 'Não informado';
-                motivosMap[m] = (motivosMap[m] || 0) + 1;
-            });
-
-            if (chartMotivos) chartMotivos.destroy();
-            const ctx = document.getElementById('chart-motivos-perda').getContext('2d');
-            chartMotivos = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(motivosMap),
-                    datasets: [{ label: 'Oportunidades Perdidas', data: Object.values(motivosMap), backgroundColor: '#f43f5e' }]
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-        }
-
-        // =========================================================================
-        // AUTENTICAÇÃO PUCA CRM VIA API
-        // =========================================================================
         async function salvarEPuxarPucaCRM() {
             if (!isAdminLoggedIn) {
                 alert("Apenas o Administrador pode sincronizar com o Puca CRM.");
                 return;
             }
 
-            const host = document.getElementById('puca-host').value.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+            const rawHost = document.getElementById('puca-host').value;
+            const host = sanitizeHost(rawHost);
             const username = document.getElementById('puca-user').value.trim();
             const password = document.getElementById('puca-pass').value.trim();
 
@@ -833,17 +633,15 @@
             if (recordCountEl) recordCountEl.innerText = "Autenticando no Puca CRM...";
 
             try {
-                // 1. LOGIN NA API PUCA BASE
-                const loginRes = await fetch(`https://${host}/puca-base-api/puca-user/system_user/login`, {
+                // 1. LOGIN API PUCA BASE
+                const loginUrl = `https://${host}/puca-base-api/puca-user/system_user/login`;
+                const loginRes = await fetchWithCorsFallback(loginUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
 
-                if (!loginRes.ok) {
-                    throw new Error(`Falha na autenticação: Usuário/senha incorretos ou erro ${loginRes.status}`);
-                }
-
+                if (!loginRes.ok) throw new Error("Usuário ou senha do Puca CRM inválidos.");
                 let token = await loginRes.text();
                 token = token.replace(/^"|"$/g, '').trim();
 
@@ -852,7 +650,8 @@
                 if (recordCountEl) recordCountEl.innerText = "Buscando Oportunidades...";
 
                 // 2. BUSCA DE OPORTUNIDADES VIA POST /find
-                const dealsRes = await fetch(`https://${host}/puca-crm-api/deal/find`, {
+                const findUrl = `https://${host}/puca-crm-api/deal/find`;
+                const dealsRes = await fetchWithCorsFallback(findUrl, {
                     method: 'POST',
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -865,10 +664,10 @@
                     })
                 });
 
-                if (!dealsRes.ok) throw new Error(`Erro ${dealsRes.status} ao consultar negócios no CRM.`);
+                if (!dealsRes.ok) throw new Error(`Erro ao consultar negócios no CRM.`);
                 const deals = await dealsRes.json();
 
-                if (!Array.isArray(deals)) throw new Error("Retorno da consulta de negócios não é um array válido.");
+                if (!Array.isArray(deals)) throw new Error("Retorno da consulta não é um array de dados válido.");
 
                 rawData = deals.map((item, idx) => ({
                     chave: item.puca_key || idx + 1,
@@ -895,7 +694,7 @@
             } catch (err) {
                 console.error("Erro na API Puca:", err);
                 if (recordCountEl) recordCountEl.innerText = "Erro ao conectar";
-                alert(`Erro na Conexão da API do Puca CRM:\n\n${err.message}\n\nVerifique se o domínio (ex: lifeapps.puca.app), usuário e senha estão corretos.`);
+                alert(`Erro na Conexão da API do Puca CRM:\n\n${err.message}\n\nVerifique as credenciais e o acesso à rede.`);
             }
         }
 
