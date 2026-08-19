@@ -1143,8 +1143,34 @@
                                 }
                             }
 
-                            const motivoPerda = row['Motivo de Perda'] || row['Motivo de perda'] || row['Motivo Perda'] || row['Motivo da Perda'] || row['Motivo'] || row['Motivo Perca'] || row['Nome.1'] || '';
-                            const dataPerda = row['Data de Perda'] || row['Data Perda'] || row['Data de pátio/perda'] || row['Data Fechamento'] || row['user_funil_venda_join_user_motivo_perda__puca_created_at'] || '';
+                            let motivoPerda = '';
+                            let dataPerda = '';
+                            
+                            for (let colKey in row) {
+                                const kLower = colKey.toLowerCase().trim();
+                                if (kLower.includes('motivo') || kLower === 'nome.1' || kLower === 'nome_1') {
+                                    if (row[colKey] && String(row[colKey]).trim() !== '') {
+                                        motivoPerda = String(row[colKey]).trim();
+                                    }
+                                }
+                                if (kLower.includes('created_at') || kLower.includes('data_perda') || kLower.includes('data de perda')) {
+                                    if (row[colKey] && String(row[colKey]).trim() !== '') {
+                                        dataPerda = String(row[colKey]).trim();
+                                    }
+                                }
+                            }
+
+                            if (etapa.toLowerCase() === 'perdido' && !motivoPerda) {
+                                const tLower = String(titulo).toLowerCase();
+                                if (tLower.includes('sem interesse') || tLower.includes('não tem interesse') || tLower.includes('declinou')) motivoPerda = 'Sem interesse';
+                                else if (tLower.includes('no show') || tLower.includes('noshow') || tLower.includes('não atende') || tLower.includes('falta de retorno')) motivoPerda = 'Falta de retorno / No Show';
+                                else if (tLower.includes('concorrente') || tLower.includes('concorrencia') || tLower.includes('agile')) motivoPerda = 'Concorrente';
+                                else if (tLower.includes('orçamento') || tLower.includes('financeiro') || tLower.includes('custo')) motivoPerda = 'Sem orçamento / Financeiro';
+                                else if (tLower.includes('desenvolvimento interno') || tLower.includes('desenvolvimento proprio') || tLower.includes('próprio')) motivoPerda = 'Desenvolvimento Próprio / Interno';
+                                else if (tLower.includes('duplicado') || tLower.includes('duplicidade')) motivoPerda = 'Duplicidade';
+                                else if (tLower.includes('postergado') || tLower.includes('retomada') || tLower.includes('retomar')) motivoPerda = 'Postergado / Retomada Futura';
+                                else motivoPerda = 'Não informado';
+                            }
 
                             return {
                                 chave: chave,
@@ -1447,7 +1473,8 @@
 
         function selectAllOrigins(status) {
             const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
-            selectedOrigins = status ? [...origensNorm] : [];
+            selectedOrigins = status ? [...orig
+ensNorm] : [];
             renderOriginCheckboxes(origensNorm);
             updateOriginSelectLabel();
             applyFilters();
@@ -1494,8 +1521,7 @@
             document.getElementById('filter-end-date').disabled = true;
 
             document.getElementById('filter-user').value = 'all';
-            document.getElementById('search-input').value 
-= '';
+            document.getElementById('search-input').value = '';
 
             document.getElementById('tbl-filter-etapa').value = 'all';
             document.getElementById('tbl-filter-user').value = 'all';
