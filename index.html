@@ -112,7 +112,7 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Digite o Host (ex: lifeapps.puca.app), Usuário e Senha do Puca para sincronizar.</p>
+                        <p class="text-xs text-slate-400">Credenciais configuradas para conexão com a API do Puca CRM.</p>
                     </div>
                 </div>
 
@@ -310,6 +310,7 @@
 
         const PUCA_HOST_KEY = 'bi_puca_crm_host';
         const PUCA_USER_KEY = 'bi_puca_crm_user';
+        const PUCA_DEFAULT_PASS = '92f24Uh^W218';
 
         let rawData = [];
         let filteredData = [];
@@ -348,6 +349,7 @@
             const user = localStorage.getItem(PUCA_USER_KEY) || 'rafael.nascimento';
             if (document.getElementById('puca-host')) document.getElementById('puca-host').value = host;
             if (document.getElementById('puca-user')) document.getElementById('puca-user').value = user;
+            if (document.getElementById('puca-pass')) document.getElementById('puca-pass').value = PUCA_DEFAULT_PASS;
         }
 
         function loadForecastData() {
@@ -591,9 +593,6 @@
             renderTable();
         }
 
-        // =========================================================================
-        // UPLOAD E EXCLUSÃO DE PLANILHAS
-        // =========================================================================
         function setupExcelUpload() {
             const fileInput = document.getElementById('excel-upload');
             if (!fileInput) return;
@@ -662,9 +661,6 @@
             }
         }
 
-        // =========================================================================
-        // EXPORTAÇÃO EM PDF
-        // =========================================================================
         function exportToPDF() {
             const btn = document.getElementById('pdf-export-btn');
             const originalText = btn.innerHTML;
@@ -695,17 +691,21 @@
             });
         }
 
-        // =========================================================================
-        // PUCA CRM API (COM TRATAMENTO DE CORS E SANITIZAÇÃO DE HOST)
-        // =========================================================================
         async function fetchWithCorsFallback(url, options) {
             try {
                 const response = await fetch(url, options);
                 if (response.ok) return response;
                 throw new Error(`Status ${response.status}`);
             } catch (err) {
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-                return await fetch(proxyUrl, options);
+                // Tenta através do proxy corsproxy.io ou api.allorigins.win
+                const proxy1 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                try {
+                    const resProxy = await fetch(proxy1, options);
+                    if (resProxy.ok) return resProxy;
+                } catch(e) {}
+                
+                const proxy2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                return await fetch(proxy2, options);
             }
         }
 
@@ -732,7 +732,6 @@
             if (recordCountEl) recordCountEl.innerText = "Autenticando no Puca CRM...";
 
             try {
-                // 1. LOGIN API PUCA BASE
                 const loginUrl = `https://${host}/puca-base-api/puca-user/system_user/login`;
                 const loginRes = await fetchWithCorsFallback(loginUrl, {
                     method: 'POST',
@@ -742,13 +741,12 @@
 
                 if (!loginRes.ok) throw new Error("Usuário ou senha do Puca CRM inválidos.");
                 let token = await loginRes.text();
-                token = token.replace(/^"|"$/g, '').trim();
+                token = token.replace(/^"|"$/g, '').replace(/[\r\n]+/g, '').trim();
 
                 if (!token) throw new Error("Token JWT não retornado pela API.");
 
                 if (recordCountEl) recordCountEl.innerText = "Buscando Oportunidades...";
 
-                // 2. BUSCA DE OPORTUNIDADES VIA POST /find
                 const findUrl = `https://${host}/puca-crm-api/deal/find`;
                 const dealsRes = await fetchWithCorsFallback(findUrl, {
                     method: 'POST',
@@ -797,7 +795,6 @@
             }
         }
 
-        // GERENCIAMENTO ADMIN
         function openAdminModal() {
             if (isAdminLoggedIn) {
                 updateAdminUIState();
