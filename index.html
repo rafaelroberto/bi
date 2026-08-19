@@ -1387,48 +1387,28 @@
         function populateDropdowns() {
             const users = [...new Set(rawData.map(d => d.usuario))].sort();
             const userSelect = document.getElementById('filter-user');
-            userSelect.innerHTML = '<option value="all">Todos os Vendedores</option>';
-            users.forEach(u => {
-                if (u) userSelect.innerHTML += `<option value="${u}">${u}</option>`;
-            });
-
-            const tblUserSelect = document.getElementById('tbl-filter-user');
-            tblUserSelect.innerHTML = '<option value="all">Todos os Vendedores</option>';
-            users.forEach(u => {
-                if (u) tblUserSelect.innerHTML += `<option value="${u}">${u}</option>`;
-            });
-
-            const etapas = [...new Set(rawData.map(d => d.etapa))].sort();
-            
-            const globalEtapaSelect = document.getElementById('filter-etapa');
-            if (globalEtapaSelect) {
-                globalEtapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>';
-                etapas.forEach(e => {
-                    if (e) globalEtapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
+            if (userSelect) {
+                userSelect.innerHTML = '<option value="all">Todos os Vendedores</option>';
+                users.forEach(u => {
+                    if (u) userSelect.innerHTML += `<option value="${u}">${u}</option>`;
                 });
             }
 
-            const tblEtapaSelect = document.getElementById('tbl-filter-etapa');
-            if (tblEtapaSelect) {
-                tblEtapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>';
+            const etapas = [...new Set(rawData.map(d => d.etapa))].sort();
+            const etapaSelect = document.getElementById('filter-etapa');
+            if (etapaSelect) {
+                etapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>';
                 etapas.forEach(e => {
-                    if (e) tblEtapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
+                    if (e) etapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
                 });
             }
 
             const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
-            const tblOrigemSelect = document.getElementById('tbl-filter-origem');
-            tblOrigemSelect.innerHTML = '<option value="all">Todas as Origens</option>';
-            origensNorm.forEach(o => {
-                if (o) tblOrigemSelect.innerHTML += `<option value="${o}">${o}</option>`;
-            });
-
             selectedOrigins = [...origensNorm];
             renderOriginCheckboxes(origensNorm);
             updateOriginSelectLabel();
         }
 
-        
         function filterOriginCheckboxes(query) {
             const q = query.toLowerCase().trim();
             const listContainer = document.getElementById('origin-checkbox-list');
@@ -1488,8 +1468,7 @@
 
             if (selectedOrigins.length === 0) {
                 labelEl.innerText = "Nenhuma Origem Selecionada";
-                labelEl.className = "truncat
-e text-rose-500 font-semibold";
+                labelEl.className = "truncate text-rose-500 font-semibold";
             } else if (selectedOrigins.length === allOrigs.length) {
                 labelEl.innerText = "Todas as Origens Selecionadas";
                 labelEl.className = "truncate font-medium text-slate-700";
@@ -1510,7 +1489,8 @@ e text-rose-500 font-semibold";
             } else {
                 startInput.disabled = true;
                 endInput.disabled = true;
-                startInput.value = '';
+         
+       startInput.value = '';
                 endInput.value = '';
                 applyFilters();
             }
