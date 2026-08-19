@@ -890,14 +890,7 @@
                 filteredData = [...rawData];
                 currentPage = 1;
                 applySortingToData();
-                updateKPIs();
-                renderSellerRanking();
-                renderRankingTable();
-                renderMotivosPerda();
-                renderFunnelChart();
-                renderForecastModule();
-                renderCharts();
-                renderTable();
+                updateAllDashboardComponents();
             } else {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('dashboard-content').classList.add('hidden');
@@ -1010,14 +1003,7 @@
                 filteredData = [...rawData];
                 currentPage = 1;
                 applySortingToData();
-                updateKPIs();
-                renderSellerRanking();
-                renderRankingTable();
-                renderMotivosPerda();
-                renderFunnelChart();
-                renderForecastModule();
-                renderCharts();
-                renderTable();
+                updateAllDashboardComponents();
 
                 alert("Planilha restaurada para a base oficial!");
             }
@@ -1498,15 +1484,15 @@
 
             if (selectedOrigins.length === 0) {
                 labelEl.innerText = "Nenhuma Origem Selecionada";
-                labelEl.className
- = "truncate text-rose-500 font-semibold";
+                labelEl.className = "truncate text-rose-500 font-semibold";
             } else if (selectedOrigins.length === allOrigs.length) {
                 labelEl.innerText = "Todas as Origens Selecionadas";
                 labelEl.className = "truncate font-medium text-slate-700";
             } else {
                 labelEl.innerText = `${selectedOrigins.length} de ${allOrigs.length} origens selecionadas`;
                 labelEl.className = "truncate font-semibold text-indigo-600";
-            }
+           
+ }
         }
 
         function handlePeriodChange() {
@@ -1556,6 +1542,70 @@
             return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
         }
 
+        
+        // =========================================================================
+        // MÓDULO RENDERIZADOR ROBUSTO E ISOLADO DE OPORTUNIDADES EM DETALHE (TABELA)
+        // =========================================================================
+
+        function updateAllDashboardComponents() {
+            // 1. RENDERIZAR TABELA EM PRIMEIRÍSSIMO LUGAR (NUNCA SUMIR)
+            try {
+                renderTable();
+            } catch (errTable) {
+                console.error("Erro na renderização da tabela:", errTable);
+            }
+
+            // 2. RENDERIZAR KPIS
+            try {
+                updateKPIs();
+            } catch (errKpi) {
+                console.error("Erro nos KPIs:", errKpi);
+            }
+
+            // 3. RENDERIZAR RANKING DE VENDEDORES
+            try {
+                renderSellerRanking();
+            } catch (errSell) {
+                console.error("Erro no ranking de vendedores:", errSell);
+            }
+
+            // 4. RENDERIZAR RANKING DE ORIGENS
+            try {
+                renderRankingTable();
+            } catch (errRank) {
+                console.error("Erro no ranking de origens:", errRank);
+            }
+
+            // 5. RENDERIZAR MOTIVOS DE PERDA
+            try {
+                renderMotivosPerda();
+            } catch (errMot) {
+                console.error("Erro nos motivos de perda:", errMot);
+            }
+
+            // 6. RENDERIZAR FUNIL VISUAL
+            try {
+                renderFunnelChart();
+            } catch (errFun) {
+                console.error("Erro no funil visual:", errFun);
+            }
+
+            // 7. RENDERIZAR FORECAST
+            try {
+                renderForecastModule();
+            } catch (errFore) {
+                console.error("Erro no forecast:", errFore);
+            }
+
+            // 8. RENDERIZAR GRÁFICOS DIVERSOS
+            try {
+                renderCharts();
+            } catch (errCharts) {
+                console.error("Erro nos gráficos:", errCharts);
+            }
+        }
+
+
         function applyFilters() {
             if (!rawData || rawData.length === 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
@@ -1591,33 +1641,32 @@
             let lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             const lastMonthStr = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-            // Mapeamento dos nomes de origens selecionados limpos de acentos
             const selectedOriginsClean = (selectedOrigins || []).map(o => removeAccents(o));
+            const allOriginsCount = [...new Set(rawData.map(item => removeAccents(item.indicacao)))].length;
 
             filteredData = rawData.filter(d => {
-                // 1. Filtro por Etapa (Insensível a acentos/caixa)
+                // 1. Filtro por Etapa
                 if (etapaVal && etapaVal !== 'all') {
                     if (removeAccents(d.etapa) !== removeAccents(etapaVal)) return false;
                 }
 
-                // 2. Filtro por Vendedor (Insensível a acentos/caixa)
+                // 2. Filtro por Vendedor
                 if (userVal && userVal !== 'all') {
                     if (removeAccents(d.usuario) !== removeAccents(userVal)) return false;
                 }
 
-                // 3. Filtro por Origens (Multi-seleção) - Só filtra se o usuário desmarcou alguma origem
-                const allOriginsCount = [...new Set(rawData.map(item => removeAccents(item.indicacao)))].length;
+                // 3. Filtro por Origens
                 if (selectedOriginsClean.length > 0 && selectedOriginsClean.length < allOriginsCount) {
                     const origClean = removeAccents(d.indicacao);
                     if (!selectedOriginsClean.includes(origClean)) return false;
                 }
 
-                // 4. Data Específica da Etapa
+                // 4. Data Específica
                 if (exactDateVal && exactDateVal.trim() !== '') {
                     if (d.data_iso !== exactDateVal.trim()) return false;
                 }
 
-                // 5. Busca por texto livre (Título, Razão Social ou Chave)
+                // 5. Busca por texto
                 if (searchVal && searchVal !== '') {
                     const sNorm = removeAccents(searchVal);
                     const matchTitle = removeAccents(d.titulo).includes(sNorm);
@@ -1626,8 +1675,8 @@
                     if (!matchTitle && !matchRazao && !matchChave) return false;
                 }
 
-                // 6. Período / Intervalo de Datas
-                if (d.data_iso) {
+                // 6. Período
+                if (d.data_iso && periodVal && periodVal !== 'all') {
                     if (periodVal === 'this-month' && !d.data_iso.startsWith(thisMonthStr)) return false;
                     if (periodVal === 'last-month' && !d.data_iso.startsWith(lastMonthStr)) return false;
                     if (periodVal === '2026' && !d.data_iso.startsWith('2026')) return false;
@@ -1655,14 +1704,9 @@
 
             currentPage = 1;
             applySortingToData();
-            updateKPIs();
-            renderSellerRanking();
-            renderRankingTable();
-            renderMotivosPerda();
-            renderFunnelChart();
-            renderForecastModule();
-            renderCharts();
-            renderTable();
+
+            // RENDERIZAÇÃO BLINDADA DE TODOS OS COMPONENTES
+            updateAllDashboardComponents();
         }
 
         function updateKPIs() {
