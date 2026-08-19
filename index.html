@@ -146,7 +146,15 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <!-- Etapa do Funil (Global) -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Etapa do Funil</label>
+                    <select id="filter-etapa" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                        <option value="all" selected>Todas as Etapas</option>
+                    </select>
+                </div>
+
                 <!-- Período -->
                 <div>
                     <label class="block text-xs font-medium text-slate-500 mb-1">Período Selecionado</label>
@@ -1407,11 +1415,22 @@
             });
 
             const etapas = [...new Set(rawData.map(d => d.etapa))].sort();
+            
+            const globalEtapaSelect = document.getElementById('filter-etapa');
+            if (globalEtapaSelect) {
+                globalEtapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>';
+                etapas.forEach(e => {
+                    if (e) globalEtapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
+                });
+            }
+
             const tblEtapaSelect = document.getElementById('tbl-filter-etapa');
-            tblEtapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>';
-            etapas.forEach(e => {
-                if (e) tblEtapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
-            });
+            if (tblEtapaSelect) {
+                tblEtapaSelect.innerHTML = '<option value="all">Todas as Etapas</option>';
+                etapas.forEach(e => {
+                    if (e) tblEtapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
+                });
+            }
 
             const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
             const tblOrigemSelect = document.getElementById('tbl-filter-origem');
@@ -1449,7 +1468,8 @@
                 const label = document.createElement('label');
                 label.className = 'flex items-center space-x-2 py-1 px-1.5 hover:bg-slate-50 rounded cursor-pointer text-slate-700';
                 label.innerHTML = `
-                    <input type="checkbox" value="${orig}" ${isChecked ? 'checked' : ''} onchange="toggleSingleOrigin(this)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
+                    <input type="chec
+kbox" value="${orig}" ${isChecked ? 'checked' : ''} onchange="toggleSingleOrigin(this)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
                     <span class="truncate">${orig}</span>
                 `;
                 listContainer.appendChild(label);
@@ -1473,8 +1493,7 @@
 
         function selectAllOrigins(status) {
             const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
-            selectedOrigins = status ? [...orig
-ensNorm] : [];
+            selectedOrigins = status ? [...origensNorm] : [];
             renderOriginCheckboxes(origensNorm);
             updateOriginSelectLabel();
             applyFilters();
@@ -1520,6 +1539,7 @@ ensNorm] : [];
             document.getElementById('filter-start-date').disabled = true;
             document.getElementById('filter-end-date').disabled = true;
 
+            document.getElementById('filter-etapa').value = 'all';
             document.getElementById('filter-user').value = 'all';
             document.getElementById('search-input').value = '';
 
@@ -1548,6 +1568,7 @@ ensNorm] : [];
             const periodVal = document.getElementById('filter-period').value;
             const startDateVal = document.getElementById('filter-start-date').value;
             const endDateVal = document.getElementById('filter-end-date').value;
+            const globalEtapaVal = document.getElementById('filter-etapa') ? document.getElementById('filter-etapa').value : 'all';
             const userVal = document.getElementById('filter-user').value;
             const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
 
@@ -1565,7 +1586,9 @@ ensNorm] : [];
                 if (userVal !== 'all' && d.usuario !== userVal) return false;
                 if (selectedOrigins.length > 0 && !selectedOrigins.includes(d.indicacao)) return false;
 
-                if (tblEtapa !== 'all' && d.etapa !== tblEtapa) return false;
+                // Filtro de Etapas (Global e Tabela)
+                if (globalEtapaVal !== 'all' && d.etapa.toLowerCase().trim() !== globalEtapaVal.toLowerCase().trim()) return false;
+                if (tblEtapa !== 'all' && d.etapa.toLowerCase().trim() !== tblEtapa.toLowerCase().trim()) return false;
                 if (tblUser !== 'all' && d.usuario !== tblUser) return false;
                 if (tblOrigem !== 'all' && d.indicacao !== tblOrigem) return false;
                 if (tblDate && d.data_iso !== tblDate) return false;
