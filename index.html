@@ -556,6 +556,18 @@
             renderAllCharts();
         }
 
+        function isGanhoEtapa(etapaStr) {
+            if (!etapaStr) return false;
+            const e = String(etapaStr).toLowerCase().trim();
+            return e.includes('ganho') || e.includes('ganha') || e.includes('vendido') || e.includes('fechado') || e.includes('sucesso') || e.includes('aprovado') || e === 'sim' || e === '1' || e.includes('concluid');
+        }
+
+        function isPerdidoEtapa(etapaStr) {
+            if (!etapaStr) return false;
+            const e = String(etapaStr).toLowerCase().trim();
+            return e.includes('perdid') || e.includes('perda') || e.includes('cancelad') || e.includes('recusad') || e.includes('desist') || e === 'nao' || e === 'não' || e === '0' || e.includes('arquivad');
+        }
+
         function updateKPIs() {
             const total = filteredData.length;
             const ganhos = filteredData.filter(d => isGanhoEtapa(d.etapa)).length;
@@ -569,18 +581,6 @@
             document.getElementById('kpi-pipeline').innerText = pipeline;
             document.getElementById('kpi-conversion').innerText = `${conversion}%`;
             document.getElementById('record-count').innerText = `${total} registros no total`;
-        }
-
-        function isGanhoEtapa(etapaStr) {
-            if (!etapaStr) return false;
-            const e = String(etapaStr).toLowerCase();
-            return e.includes('ganho') || e.includes('vendido') || e.includes('fechado') || e.includes('sucesso') || e.includes('aprovado');
-        }
-
-        function isPerdidoEtapa(etapaStr) {
-            if (!etapaStr) return false;
-            const e = String(etapaStr).toLowerCase();
-            return e.includes('perdid') || e.includes('perda') || e.includes('cancelad') || e.includes('recusad') || e.includes('desist');
         }
 
         function applySortingToData() {
@@ -782,17 +782,19 @@
         }
 
         // =========================================================================
-        // UPLOAD INTELIGENTE DA PLANILHA EXCEL/CSV
+        // LEITOR INTELIGENTE E REGISTRO DE DATA/HORA
         // =========================================================================
         function findColumnValue(row, possibleNames) {
             const keys = Object.keys(row);
+            
+            // Busca Exata
             for (let name of possibleNames) {
                 const targetKey = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
                 if (targetKey && row[targetKey] !== undefined && row[targetKey] !== null) {
                     return row[targetKey];
                 }
             }
-            // Segunda varredura por busca parcial de texto
+            // Busca Parcial
             for (let name of possibleNames) {
                 const targetKey = keys.find(k => k.trim().toLowerCase().includes(name.toLowerCase()));
                 if (targetKey && row[targetKey] !== undefined && row[targetKey] !== null) {
@@ -805,7 +807,6 @@
         function parseExcelDate(val) {
             if (!val) return { display: '', iso: '', year_month: '' };
 
-            // Se for número de série de data do Excel
             if (typeof val === 'number') {
                 const dateObj = XLSX.SSF.parse_date_code(val);
                 if (dateObj) {
@@ -818,7 +819,6 @@
 
             const strVal = String(val).trim();
 
-            // Se formato DD/MM/AAAA ou DD/MM/AAAA HH:MM
             const matchBR = strVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
             if (matchBR) {
                 const d = String(matchBR[1]).padStart(2, '0');
@@ -827,7 +827,6 @@
                 return { display: `${d}/${m}/${y}`, iso: `${y}-${m}-${d}`, year_month: `${y}-${m}` };
             }
 
-            // Se formato AAAA-MM-DD
             const matchISO = strVal.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
             if (matchISO) {
                 const y = matchISO[1];
@@ -862,14 +861,17 @@
                         }
 
                         rawData = json.map((row, idx) => {
-                            const rawChave = findColumnValue(row, ['Chave Única', 'Chave', 'ID', 'Codigo', 'Key', 'puca_key', 'Oportunidade']) || (idx + 1);
-                            const rawTitulo = findColumnValue(row, ['Título', 'Titulo', 'Title', 'Nome do Negocio', 'Oportunidade']) || '';
-                            const rawRazao = findColumnValue(row, ['Razão Social', 'Razao Social', 'Cliente', 'Empresa', 'Person Name', 'Nome', 'Título']) || rawTitulo || 'Sem Nome';
-                            const rawUsuario = findColumnValue(row, ['Usuário', 'Usuario', 'Vendedor', 'Responsavel', 'User Name', 'User']) || 'Não Atribuído';
-                            const rawEtapa = findColumnValue(row, ['Etapa', 'Status', 'Fase', 'Estágio', 'Stage Name', 'Situacao']) || 'Em Andamento';
-                            const rawIndicacao = findColumnValue(row, ['Origem', 'Indicação', 'Indicacao', 'Origin', 'Canal']) || 'Não Informada';
-                            const rawMotivo = findColumnValue(row, ['Motivo de Perda', 'Motivo Perda', 'Loss Reason', 'Motivo']) || '';
-                            const rawDataVal = findColumnValue(row, ['Data', 'Data de entrada na etapa', 'Created At', 'Data Criacao', 'Data Entrada']);
+                            const rawChave = findColumnValue(row, ['Chave Única', 'Chave', 'ID', 'Codigo', 'Key', 'puca_key', 'Oportunidade', 'Num']) || (idx + 1);
+                            const rawTitulo = findColumnValue(row, ['Título', 'Titulo', 'Title', 'Nome do Negocio', 'Oportunidade', 'Assunto']) || '';
+                            const rawRazao = findColumnValue(row, ['Razão Social', 'Razao Social', 'Cliente', 'Empresa', 'Person Name', 'Nome', 'Título', 'Fantasia']) || rawTitulo || 'Sem Nome';
+                            const rawUsuario = findColumnValue(row, ['Usuário', 'Usuario', 'Vendedor', 'Responsavel', 'User Name', 'User', 'Consultor']) || 'Não Atribuído';
+                            
+                            // VARREDURA EXPANDIDA PARA ETAPA/STATUS
+                            let rawEtapa = findColumnValue(row, ['Etapa', 'Status', 'Fase', 'Estágio', 'Estagio', 'Stage Name', 'Situacao', 'Situação', 'Resultado', 'Ganhou', 'Perdeu', 'Estado']) || 'Em Andamento';
+                            
+                            const rawIndicacao = findColumnValue(row, ['Origem', 'Indicação', 'Indicacao', 'Origin', 'Canal', 'Fonte', 'Meio']) || 'Não Informada';
+                            const rawMotivo = findColumnValue(row, ['Motivo de Perda', 'Motivo Perda', 'Loss Reason', 'Motivo', 'Motivo do Cancelamento']) || '';
+                            const rawDataVal = findColumnValue(row, ['Data', 'Data de entrada na etapa', 'Created At', 'Data Criacao', 'Data Entrada', 'Criado em', 'Data Inicial']);
 
                             const parsedDate = parseExcelDate(rawDataVal);
 
