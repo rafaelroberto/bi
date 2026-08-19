@@ -42,14 +42,14 @@
                     <p class="text-xs text-slate-400 flex items-center space-x-1" id="header-subtitle">
                         <span>Análise Comercial</span>
                         <span id="import-time-badge" class="text-[11px] bg-slate-800 text-slate-300 font-medium px-2 py-0.5 rounded border border-slate-700 ml-2">
-                            🕒 Importado em: <span id="import-time-val" class="font-semibold text-emerald-400">Oficial da Planilha</span>
+                            🕒 Importado em: <span id="import-time-val" class="font-semibold text-emerald-400">Base Padrão</span>
                         </span>
                     </p>
                 </div>
             </div>
             
             <div class="flex items-center space-x-3 no-pdf">
-                <button onclick="forceRefreshPanel()" id="refresh-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-lg text-xs font-medium transition border border-slate-700 flex items-center space-x-1.5" title="Atualizar dados e limpar cache">
+                <button onclick="forceRefreshPanel()" id="refresh-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-lg text-xs font-medium transition border border-slate-700 flex items-center space-x-1.5">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-400"></i>
                     <span class="hidden sm:inline">Atualizar Painel</span>
                 </button>
@@ -74,20 +74,20 @@
                 </div>
                 <div>
                     <h3 class="text-sm font-bold text-white">Gerenciamento da Planilha Oficial</h3>
-                    <p class="text-xs text-slate-400">Suba uma nova planilha para atualizar o banco de dados e disponibilizar para todos os usuários.</p>
+                    <p class="text-xs text-slate-400">Suba uma nova planilha para atualizar os dados do painel.</p>
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
                 <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
                     <i data-lucide="upload" class="w-4 h-4"></i>
-                    <span>Subir Excel</span>
+                    <span>Subir Excel / Planilha</span>
                 </label>
                 <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
 
                 <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1.5">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    <span>Excluir Dados</span>
+                    <span>Excluir Dados Salvos</span>
                 </button>
 
                 <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition">
@@ -112,7 +112,7 @@
                             <span>Autenticação API & Sincronização Puca CRM</span>
                             <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira Host (somente o domínio, ex: lifeapps.puca.app), Usuário e Senha do Puca.</p>
+                        <p class="text-xs text-slate-400">Digite o Host (ex: lifeapps.puca.app), Usuário e Senha do Puca para sincronizar.</p>
                     </div>
                 </div>
 
@@ -191,53 +191,48 @@
         <!-- Dashboard Content -->
         <div id="dashboard-content" class="space-y-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div onclick="drilldownKPI('Ganho')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-emerald-600">Negócios Ganhos 🔍</p>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Negócios Ganhos</p>
                         <h3 id="kpi-ganhos" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
-                        <p id="kpi-ganhos-pct" class="text-xs text-slate-400 mt-0.5">0% do total</p>
                     </div>
-                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-600 group-hover:text-white">
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
                         <i data-lucide="check-circle-2" class="w-6 h-6"></i>
                     </div>
                 </div>
-                <div onclick="drilldownKPI('Perdido')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-rose-600">Negócios Perdidos 🔍</p>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Negócios Perdidos</p>
                         <h3 id="kpi-perdidos" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
-                        <p id="kpi-perdidos-pct" class="text-xs text-slate-400 mt-0.5">0% do total</p>
                     </div>
-                    <div class="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-600 group-hover:text-white">
+                    <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
                         <i data-lucide="x-circle" class="w-6 h-6"></i>
                     </div>
                 </div>
-                <div onclick="drilldownKPI('Conversao')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-indigo-600">Taxa de Conversão 🔍</p>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Taxa de Conversão</p>
                         <h3 id="kpi-conversion" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Ganhos vs Perdidos</p>
                     </div>
-                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-600 group-hover:text-white">
+                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
                         <i data-lucide="trending-up" class="w-6 h-6"></i>
                     </div>
                 </div>
-                <div onclick="drilldownKPI('Pipeline')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-amber-600">Em Andamento 🔍</p>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Em Andamento</p>
                         <h3 id="kpi-pipeline" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Em negociação/proposta</p>
                     </div>
-                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-600 group-hover:text-white">
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
                         <i data-lucide="clock" class="w-6 h-6"></i>
                     </div>
                 </div>
-                <div onclick="drilldownKPI('Total')" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-between group">
+                <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider group-hover:text-slate-800">Total de Leads 🔍</p>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total de Leads</p>
                         <h3 id="kpi-total" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Clique para ver todos</p>
                     </div>
-                    <div class="p-3 bg-slate-100 text-slate-600 rounded-xl group-hover:bg-slate-800 group-hover:text-white">
+                    <div class="p-3 bg-slate-100 text-slate-600 rounded-xl">
                         <i data-lucide="layers" class="w-6 h-6"></i>
                     </div>
                 </div>
@@ -331,6 +326,7 @@
             lucide.createIcons();
             loadPucaCredentials();
             loadForecastData();
+            setupExcelUpload();
             initDataset();
 
             document.addEventListener('click', (e) => {
@@ -596,6 +592,110 @@
         }
 
         // =========================================================================
+        // UPLOAD E EXCLUSÃO DE PLANILHAS
+        // =========================================================================
+        function setupExcelUpload() {
+            const fileInput = document.getElementById('excel-upload');
+            if (!fileInput) return;
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheet];
+                        const json = XLSX.utils.sheet_to_json(worksheet);
+
+                        if (!json || json.length === 0) {
+                            alert("A planilha enviada não possui registros válidos.");
+                            return;
+                        }
+
+                        rawData = json.map((row, idx) => ({
+                            chave: row['Chave Única'] || row['Chave'] || idx + 1,
+                            titulo: row['Título'] || row['Titulo'] || '',
+                            data: row['Data'] || row['Data de entrada na etapa'] || '',
+                            data_iso: row['Data ISO'] || (row['Data'] ? String(row['Data']).split(' ')[0] : ''),
+                            year_month: row['Ano-Mês'] || (row['Data'] ? String(row['Data']).substring(0, 7) : ''),
+                            usuario: row['Usuário'] || row['Vendedor'] || 'Não Atribuído',
+                            etapa: row['Etapa'] || row['Status'] || 'Prospecção',
+                            indicacao: row['Origem'] || row['Indicação'] || 'Não Informada',
+                            razao: row['Razão Social'] || row['Cliente'] || row['Título'] || 'Sem Nome',
+                            motivo_perda: row['Motivo de Perda'] || ''
+                        }));
+
+                        const nowStr = new Date().toLocaleString('pt-BR');
+                        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rawData));
+                        localStorage.setItem(LOCAL_STORAGE_META_KEY, `Planilha Excel (${nowStr})`);
+
+                        document.getElementById('import-time-val').innerText = `Excel (${nowStr})`;
+                        renderFullDashboardInstant();
+                        alert(`Planilha importada com sucesso! ${rawData.length} registros carregados.`);
+
+                    } catch (err) {
+                        console.error("Erro ao ler Excel:", err);
+                        alert("Erro ao processar o arquivo Excel. Verifique a estrutura das colunas.");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function deleteCustomPlanilha() {
+            if (!isAdminLoggedIn) {
+                alert("Apenas o Administrador pode excluir os dados salvos.");
+                return;
+            }
+
+            if (confirm("Tem certeza que deseja apagar a planilha salva? O painel voltará para a base padrão.")) {
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+                localStorage.removeItem(LOCAL_STORAGE_META_KEY);
+                loadDefaultDataset();
+                document.getElementById('import-time-val').innerText = "Base Padrão";
+                renderFullDashboardInstant();
+                alert("Dados salvos removidos. Base restaurada para o padrão.");
+            }
+        }
+
+        // =========================================================================
+        // EXPORTAÇÃO EM PDF
+        // =========================================================================
+        function exportToPDF() {
+            const btn = document.getElementById('pdf-export-btn');
+            const originalText = btn.innerHTML;
+            btn.innerText = "Gerando PDF...";
+            btn.disabled = true;
+
+            const element = document.getElementById('exportable-area');
+            element.classList.add('pdf-export-mode');
+
+            const opt = {
+                margin: [0.3, 0.3, 0.3, 0.3],
+                filename: `BI_Comercial_Relatorio_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'in', format: 'a3', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.remove('pdf-export-mode');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error("Erro no PDF:", err);
+                element.classList.remove('pdf-export-mode');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert("Ocorreu uma falha ao gerar o PDF. Tente novamente.");
+            });
+        }
+
+        // =========================================================================
         // PUCA CRM API (COM TRATAMENTO DE CORS E SANITIZAÇÃO DE HOST)
         // =========================================================================
         async function fetchWithCorsFallback(url, options) {
@@ -604,7 +704,6 @@
                 if (response.ok) return response;
                 throw new Error(`Status ${response.status}`);
             } catch (err) {
-                // Fallback usando proxy CORS para hospedeiros remotos (ex: GitHub Pages)
                 const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
                 return await fetch(proxyUrl, options);
             }
@@ -694,7 +793,7 @@
             } catch (err) {
                 console.error("Erro na API Puca:", err);
                 if (recordCountEl) recordCountEl.innerText = "Erro ao conectar";
-                alert(`Erro na Conexão da API do Puca CRM:\n\n${err.message}\n\nVerifique as credenciais e o acesso à rede.`);
+                alert(`Erro na Conexão da API do Puca CRM:\n\n${err.message}\n\nVerifique as credenciais e tente novamente.`);
             }
         }
 
@@ -767,6 +866,10 @@
             }
             applySortingToData();
             renderTable();
+        }
+
+        function forceRefreshPanel() {
+            initDataset();
         }
 
         function drilldownKPI(type) {
