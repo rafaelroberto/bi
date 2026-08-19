@@ -106,34 +106,22 @@
                 </div>
             </div>
 
-            <!-- Conexão com API do Puca CRM e Botões Admin -->
-            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
-                <!-- Credenciais API Puca CRM -->
-                <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-700/80 flex flex-wrap sm:flex-nowrap items-center gap-2">
-                    <input type="text" id="puca-host" placeholder="Host (ex: puca.suaempresa.com.br)" class="bg-slate-800 border border-slate-700 text-white text-xs px-2.5 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full sm:w-48 font-mono">
-                    <input type="password" id="puca-token" placeholder="Bearer Token do Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-2.5 py-1.5 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full sm:w-44 font-mono">
-                    <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-center space-x-1 whitespace-nowrap">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                        <span>Sincronizar Puca CRM</span>
-                    </button>
-                </div>
+            <!-- Botões de Ação Admin -->
+            <div class="flex flex-wrap items-center gap-3">
+                <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Subir / Atualizar Planilha Oficial</span>
+                </label>
+                <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
 
-                <div class="flex items-center gap-2">
-                    <label for="excel-upload" class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-sm whitespace-nowrap">
-                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                        <span>Subir Excel</span>
-                    </label>
-                    <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden">
+                <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1.5">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Excluir Planilha Personalizada</span>
+                </button>
 
-                    <button onclick="deleteCustomPlanilha()" class="bg-rose-600/80 hover:bg-rose-600 text-white px-3 py-2 rounded-lg text-xs font-semibold transition border border-rose-500 flex items-center space-x-1 whitespace-nowrap">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        <span>Excluir Dados</span>
-                    </button>
-
-                    <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-2 rounded-lg text-xs font-medium transition">
-                        Sair
-                    </button>
-                </div>
+                <button onclick="logoutAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition">
+                    Sair do Admin
+                </button>
             </div>
         </div>
     </div>
@@ -775,7 +763,6 @@
         let chartMotivosPerda = null;
 
         document.addEventListener("DOMContentLoaded", () => {
-            loadPucaCredentials();
             lucide.createIcons();
             setupFileUpload();
             initDataset();
@@ -851,151 +838,25 @@
         }
 
         // INICIALIZAÇÃO DE DADOS (SUPABASE -> LOCALSTORAGE -> EMBUTIDO)
-        
-        // =========================================================================
-        // MÓDULO DE INTEGRAÇÃO COM A API DO PUCA CRM (MÉTODO POST /find)
-        // =========================================================================
-        const PUCA_HOST_KEY = 'bi_puca_crm_host';
-        const PUCA_TOKEN_KEY = 'bi_puca_crm_token';
-
-        function loadPucaCredentials() {
-            const host = localStorage.getItem(PUCA_HOST_KEY) || '';
-            const token = localStorage.getItem(PUCA_TOKEN_KEY) || '';
-            const hostInput = document.getElementById('puca-host');
-            const tokenInput = document.getElementById('puca-token');
-            if (hostInput) hostInput.value = host;
-            if (tokenInput) tokenInput.value = token;
-        }
-
-        async function salvarEPuxarPucaCRM() {
-            if (!isAdminLoggedIn) {
-                alert("Apenas o Administrador pode configurar a sincronização do Puca CRM.");
-                openAdminModal();
-                return;
-            }
-
-            const host = document.getElementById('puca-host').value.trim().replace(/^https?:\\/\//, '').replace(/\\/$/, '');
-            const token = document.getElementById('puca-token').value.trim();
-
-            if (!host || !token) {
-                alert("Por favor, preencha o Host/Domínio e o Token Bearer da API do Puca CRM.");
-                return;
-            }
-
-            localStorage.setItem(PUCA_HOST_KEY, host);
-            localStorage.setItem(PUCA_TOKEN_KEY, token);
-
-            alert("Iniciando consulta à API do Puca CRM via POST /find...");
-            await sincronizarComPucaCRM(host, token);
-        }
-
-        async function sincronizarComPucaCRM(host, token) {
-            const endpoint = `https://${host}/puca-crm-api/deal/find`;
-            const payload = {
-                "from": "puca_crm_api_deal",
-                "fields": [
-                    "puca_key",
-                    "title",
-                    "person_name",
-                    "user_name",
-                    "stage_name",
-                    "origin",
-                    "loss_reason",
-                    "created_at",
-                    "closed_at"
-                ],
-                "where": {
-                    "and": []
-                }
-            };
-
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Erro na API Puca CRM: Status ${response.status} - ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    alert("Conexão realizada com sucesso, mas nenhum registro de oportunidade foi retornado para esta consulta.");
-                    return;
-                }
-
-                rawData = data.map((item, idx) => {
-                    const chave = item.puca_key || item.id || idx + 1;
-                    const titulo = item.title || item.name || `Oportunidade ${chave}`;
-                    const razao = item.person_name || item.company_name || titulo;
-                    const usuario = item.user_name || item.owner || 'Não Atribuído';
-                    const etapa = item.stage_name || item.status || 'Prospecção';
-                    const indicacaoRaw = item.origin || item.source || 'Não Informada';
-                    const motivoPerda = item.loss_reason || '';
-                    const dataRaw = item.created_at || '';
-
-                    let dataIso = '';
-                    let yearMonth = '';
-                    if (dataRaw) {
-                        const dObj = new Date(dataRaw);
-                        if (!isNaN(dObj.getTime())) {
-                            dataIso = dObj.toISOString().split('T')[0];
-                            yearMonth = dataIso.substring(0, 7);
-                        }
-                    }
-
-                    return {
-                        chave: chave,
-                        titulo: String(titulo).trim(),
-                        data: dataRaw ? new Date(dataRaw).toLocaleString('pt-BR') : '',
-                        data_iso: dataIso,
-                        year_month: yearMonth,
-                        usuario: String(usuario).trim(),
-                        etapa: String(etapa).trim(),
-                        indicacao_raw: String(indicacaoRaw).trim(),
-                        indicacao: normalizeOrigem(indicacaoRaw, String(usuario).trim()),
-                        razao: String(razao).trim(),
-                        motivo_perda: String(motivoPerda).trim(),
-                        data_perda: item.closed_at ? new Date(item.closed_at).toLocaleString('pt-BR') : ''
-                    };
-                });
-
-                const nowStr = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-                localStorage.setItem(LOCAL_STORAGE_META_KEY, `Puca CRM (${nowStr})`);
-                saveSpreadsheetToStorage(rawData);
-
-                renderFullDashboardInstant(`Puca CRM (${nowStr})`);
-                alert(`Integração concluída com sucesso! ${rawData.length} oportunidades sincronizadas do Puca CRM.`);
-
-            } catch (err) {
-                console.error("Erro ao sincronizar com Puca CRM:", err);
-                alert(`Falha na comunicação com a API do Puca CRM:\n${err.message}\n\nVerifique se o Host, Token e permissões do robô/usuário estão corretos.`);
-            }
-        }
-
-
-        // INICIALIZAÇÃO INSTANTÂNEA DOS DADOS (SÍNCRONA + ASSÍNCRONA SEM BLOQUEIO)
+        // INICIALIZAÇÃO DEFINITIVA E INFALÍVEL (GARANTE QUE O PAINEL NUNCA ABRA VAZIO)
         function initDataset() {
             let importTimestamp = "Oficial da Planilha";
 
-            // 1. CARREGAMENTO IMEDIATO SÍNCRONO DA BASE OFICIAL OU LOCALSTORAGE (0ms)
+            // 1. LIMPEZA DE CACHE ANTIGO SE VAZIO E CARREGAMENTO SÍNCRONO (0ms)
             try {
                 const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
                 const savedTime = localStorage.getItem(LOCAL_STORAGE_META_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    if (parsed && parsed.length > 0) {
+                    if (Array.isArray(parsed) && parsed.length > 0) {
                         rawData = parsed.map(item => ({
                             ...item,
                             indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario)
                         }));
                         importTimestamp = savedTime || "Salvo Localmente";
                     } else {
+                        // Se o localStorage estiver vazio ou corrompido, limpa e carrega o padrão oficial
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
                         loadDefaultDataset();
                     }
                 } else {
@@ -1005,74 +866,48 @@
                 loadDefaultDataset();
             }
 
-            // 2. EXIBIR E RENDERIZAR TELA IMEDIATAMENTE SEMENTE TRAVAMENTOS (0ms)
-            renderFullDashboardInstant(importTimestamp);
-
-            // 3. CONSULTA EM SEGUNDO PLANO (SUPABASE) COM TIMEOUT DE SEGURAÇA
-            if (supabaseClient) {
-                fetchSupabaseDataBackground();
+            // SE POR QUALQUER MOTIVO rawData ESTIVER VAZIO, FORÇA A BASE OFICIAL EMBUTIDA
+            if (!rawData || rawData.length === 0) {
+                loadDefaultDataset();
+                importTimestamp = "Oficial da Planilha";
             }
+
+            // 2. RENDERIZAÇÃO IMEDIATA SEM ESPERAR NADA (0ms)
+            renderFullDashboardInstant(importTimestamp);
         }
 
         function renderFullDashboardInstant(importTimestamp) {
-            if (rawData && rawData.length > 0) {
-                document.getElementById('empty-state').classList.add('hidden');
-                document.getElementById('dashboard-content').classList.remove('hidden');
-
-                if (importTimestamp) {
-                    document.getElementById('import-time-val').innerText = importTimestamp;
-                    document.getElementById('import-time-badge').classList.remove('hidden');
-                }
-
-                loadForecastData();
-                populateDropdowns();
-                populateFunnelSellerDropdown();
-
-                filteredData = [...rawData];
-                currentPage = 1;
-                applySortingToData();
-                updateAllDashboardComponents();
-            } else {
-                document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('dashboard-content').classList.add('hidden');
-                document.getElementById('record-count').innerText = "0 registros";
+            if (!rawData || rawData.length === 0) {
+                loadDefaultDataset();
             }
-        }
 
-        async function fetchSupabaseDataBackground() {
-            try {
-                // Timeout de segurança de 1.5s
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout Supabase")), 1500));
-                const fetchPromise = supabaseClient.from('comercial_deals').select('*').order('data_iso', { ascending: false });
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
 
-                const res = await Promise.race([fetchPromise, timeoutPromise]);
-                if (res && res.data && res.data.length > 0) {
-                    rawData = res.data.map(item => ({
-                        chave: item.id || item.chave,
-                        titulo: item.titulo || '',
-                        data: item.data_raw || item.data || '',
-                        data_iso: item.data_iso || '',
-                        year_month: item.year_month || '',
-                        usuario: item.usuario || 'Não Atribuído',
-                        etapa: item.etapa || 'Sem Etapa',
-                        indicacao_raw: item.indicacao_raw || 'Não Informada',
-                        indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario),
-                        razao: item.razao || item.titulo || '',
-                        motivo_perda: item.motivo_perda || '',
-                        data_perda: item.data_perda || ''
-                    }));
-
-                    let importTimestamp = "Oficial da Planilha";
-                    if (res.data[0] && res.data[0].created_at) {
-                        const d = new Date(res.data[0].created_at);
-                        importTimestamp = d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-                    }
-
-                    renderFullDashboardInstant(importTimestamp);
-                }
-            } catch (err) {
-                console.warn("Consulta ao Supabase em segundo plano não respondeu ou expirou, mantendo dados locais carregados instantaneamente.");
+            if (importTimestamp) {
+                document.getElementById('import-time-val').innerText = importTimestamp;
+                document.getElementById('import-time-badge').classList.remove('hidden');
             }
+
+            loadForecastData();
+            populateDropdowns();
+            populateFunnelSellerDropdown();
+
+            // Sincroniza cópia dos dados filtrados
+            filteredData = [...rawData];
+            currentPage = 1;
+            
+            // Aplica ordenação inicial por data
+            applySortingToData();
+
+            // Atualiza o texto do contador de registros imediatamente no topo
+            const countEl = document.getElementById('record-count');
+            if (countEl) {
+                countEl.innerText = `${filteredData.length} registros no total`;
+            }
+
+            // Executa a renderização blindada de todos os componentes
+            updateAllDashboardComponents();
         }
 
 
@@ -1483,8 +1318,7 @@
             // Etapas na sequência do Funil Comercial
             const funnelStagesOrder = [
                 { name: 'Prospecção', bg: 'bg-indigo-500' },
-                { name: 'Qualificaç
-ão', bg: 'bg-indigo-600' },
+                { name: 'Qualificação', bg: 'bg-indigo-600' },
                 { name: 'Demonstração', bg: 'bg-indigo-700' },
                 { name: 'Proposta', bg: 'bg-indigo-800' },
                 { name: 'Negociação', bg: 'bg-amber-500' },
@@ -1666,7 +1500,8 @@
 
             if (document.getElementById('filter-etapa')) document.getElementById('filter-etapa').value = 'all';
             if (document.getElementById('filter-user')) document.getElementById('filter-user').value = 'all';
-            if (document.getElementById('filter-exact-date')) document.getElementById('filter-exact-date').value = '';
+            if (document.getElementById('filter-exact-date')) document.getElementById('filter-exact-date').
+value = '';
             if (document.getElementById('search-input')) document.getElementById('search-input').value = '';
 
             const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
