@@ -150,7 +150,7 @@
                 <!-- Etapa do Funil (Global) -->
                 <div>
                     <label class="block text-xs font-medium text-slate-500 mb-1">Etapa do Funil</label>
-                    <select id="filter-etapa" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <select id="filter-etapa" onchange="applyFilters('globalEtapa')" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
                         <option value="all" selected>Todas as Etapas</option>
                     </select>
                 </div>
@@ -181,7 +181,7 @@
                 <!-- Vendedor (Nome de Usuário) -->
                 <div>
                     <label class="block text-xs font-medium text-slate-500 mb-1">Nome de Usuário (Vendedor)</label>
-                    <select id="filter-user" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
+                    <select id="filter-user" onchange="applyFilters('globalUser')" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium">
                         <option value="all">Todos os Vendedores</option>
                     </select>
                 </div>
@@ -559,7 +559,7 @@
                         <h2 class="text-base font-semibold text-slate-800">Oportunidades em Detalhe</h2>
                     </div>
                     <div class="flex items-center space-x-3 no-pdf">
-                        <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Buscar por Título, Cliente, Chave..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 w-64">
+                        <input type="text" id="search-input" onkeyup="applyFilters('search')" oninput="applyFilters('search')" placeholder="Buscar por Título, Cliente, Chave..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 w-64">
                     </div>
                 </div>
 
@@ -567,19 +567,19 @@
                 <div class="px-5 grid grid-cols-1 sm:grid-cols-4 gap-3 no-pdf">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filtrar por Etapa</label>
-                        <select id="tbl-filter-etapa" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
+                        <select id="tbl-filter-etapa" onchange="applyFilters('tblEtapa')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
                             <option value="all">Todas as Etapas</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filtrar por Vendedor</label>
-                        <select id="tbl-filter-user" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
+                        <select id="tbl-filter-user" onchange="applyFilters('tblUser')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
                             <option value="all">Todos os Vendedores</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filtrar por Origem</label>
-                        <select id="tbl-filter-origem" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
+                        <select id="tbl-filter-origem" onchange="applyFilters('tblOrigem')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
                             <option value="all">Todas as Origens</option>
                         </select>
                     </div>
@@ -1400,6 +1400,41 @@
             });
         }
 
+        
+        function syncFilterDropdowns(source) {
+            // Sincronizar Etapa entre Topo e Tabela
+            const globalEtapa = document.getElementById('filter-etapa');
+            const tblEtapa = document.getElementById('tbl-filter-etapa');
+            if (source === 'globalEtapa' && tblEtapa && globalEtapa) {
+                tblEtapa.value = globalEtapa.value;
+            } else if (source === 'tblEtapa' && globalEtapa && tblEtapa) {
+                globalEtapa.value = tblEtapa.value;
+            }
+
+            // Sincronizar Vendedor entre Topo e Tabela
+            const globalUser = document.getElementById('filter-user');
+            const tblUser = document.getElementById('tbl-filter-user');
+            if (source === 'globalUser' && tblUser && globalUser) {
+                tblUser.value = globalUser.value;
+            } else if (source === 'tblUser' && globalUser && tblUser) {
+                globalUser.value = tblUser.value;
+            }
+
+            // Sincronizar Origem Tabela -> MultiSelect
+            const tblOrigem = document.getElementById('tbl-filter-origem');
+            if (source === 'tblOrigem' && tblOrigem) {
+                const val = tblOrigem.value;
+                const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
+                if (val === 'all') {
+                    selectedOrigins = [...origensNorm];
+                } else {
+                    selectedOrigins = [val];
+                }
+                renderOriginCheckboxes(origensNorm);
+                updateOriginSelectLabel();
+            }
+        }
+
         function populateDropdowns() {
             const users = [...new Set(rawData.map(d => d.usuario))].sort();
             const userSelect = document.getElementById('filter-user');
@@ -1430,7 +1465,8 @@
                 etapas.forEach(e => {
                     if (e) tblEtapaSelect.innerHTML += `<option value="${e}">${e}</option>`;
                 });
-            }
+           
+ }
 
             const origensNorm = [...new Set(rawData.map(d => d.indicacao))].sort();
             const tblOrigemSelect = document.getElementById('tbl-filter-origem');
@@ -1468,8 +1504,7 @@
                 const label = document.createElement('label');
                 label.className = 'flex items-center space-x-2 py-1 px-1.5 hover:bg-slate-50 rounded cursor-pointer text-slate-700';
                 label.innerHTML = `
-                    <input type="chec
-kbox" value="${orig}" ${isChecked ? 'checked' : ''} onchange="toggleSingleOrigin(this)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
+                    <input type="checkbox" value="${orig}" ${isChecked ? 'checked' : ''} onchange="toggleSingleOrigin(this)" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
                     <span class="truncate">${orig}</span>
                 `;
                 listContainer.appendChild(label);
@@ -1556,7 +1591,8 @@ kbox" value="${orig}" ${isChecked ? 'checked' : ''} onchange="toggleSingleOrigin
             applyFilters();
         }
 
-        function applyFilters() {
+        function applyFilters(source) {
+            syncFilterDropdowns(source);
             if (rawData.length === 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('empty-title').innerText = "Nenhuma planilha salva no momento";
@@ -1889,7 +1925,15 @@ kbox" value="${orig}" ${isChecked ? 'checked' : ''} onchange="toggleSingleOrigin
 
             if (sortedMotivos.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Nenhum registro de perda encontrado nos filtros atuais.</td></tr>`;
-                if (chartMotivosPerda) chartMotivosPerda.destroy();
+                if (chartMotivosPerda) {
+                    chartMotivosPerda.destroy();
+                    chartMotivosPerda = null;
+                }
+                const ctxMotivos = document.getElementById('chart-motivos-perda');
+                if (ctxMotivos) {
+                    const ctx = ctxMotivos.getContext('2d');
+                    ctx.clearRect(0, 0, ctxMotivos.width, ctxMotivos.height);
+                }
                 return;
             }
 
