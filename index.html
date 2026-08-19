@@ -129,28 +129,29 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-                <!-- Card / Barra de Integração Nativa com Puca CRM (EXCLUSIVO PARA ADMIN) -->
+                <!-- Card / Barra de Integração Nativa com Puca CRM (Autenticação Usuário/Senha - EXCLUSIVO PARA ADMIN) -->
         <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
                     <div class="p-2 bg-indigo-600 rounded-lg flex-shrink-0">
-                        <i data-lucide="refresh-cw" class="w-5 h-5 text-white"></i>
+                        <i data-lucide="key-round" class="w-5 h-5 text-white"></i>
                     </div>
                     <div>
                         <h2 class="text-sm font-bold text-white flex items-center space-x-2">
-                            <span>Conexão Direta & Sincronização Puca CRM</span>
-                            <span class="text-[10px] bg-emerald-500/20 text-emerald-400 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">API POST /find</span>
+                            <span>Autenticação API & Sincronização Puca CRM</span>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira o Host e Token do seu CRM do Puca para buscar e atualizar os dados em tempo real.</p>
+                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API, obter o JWT e carregar as oportunidades.</p>
                     </div>
                 </div>
 
                 <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
-                    <input type="text" id="puca-host" placeholder="Host (ex: puca.suaempresa.com.br)" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-56 font-mono">
-                    <input type="password" id="puca-token" placeholder="Bearer Token do Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
+                    <input type="text" id="puca-host" placeholder="Host (ex: meunegocio.puca.app)" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
+                    <input type="text" id="puca-user" placeholder="Usuário Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
+                    <input type="password" id="puca-pass" placeholder="Senha Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
                     <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm whitespace-nowrap w-full sm:w-auto">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                        <span>Sincronizar Puca CRM</span>
+                        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+                        <span>Sincronizar via Login Puca</span>
                     </button>
                 </div>
             </div>
@@ -1476,13 +1477,13 @@
             // Etapas na sequência do Funil Comercial
             const funnelStagesOrder = [
                 { name: 'Prospecção', bg: 'bg-indigo-500' },
-                { name: 'Qualificação', bg: 'bg-indigo-600' },
+                { name: 'Qualificaç
+ão', bg: 'bg-indigo-600' },
                 { name: 'Demonstração', bg: 'bg-indigo-700' },
                 { name: 'Proposta', bg: 'bg-indigo-800' },
                 { name: 'Negociação', bg: 'bg-amber-500' },
                 { name: 'Assinatura', bg: 'bg-amber-600' },
-                { n
-ame: 'Ganho', bg: 'bg-emerald-600' },
+                { name: 'Ganho', bg: 'bg-emerald-600' },
                 { name: 'Perdido', bg: 'bg-rose-500' }
             ];
 
