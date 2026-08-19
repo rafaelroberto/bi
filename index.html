@@ -129,8 +129,8 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-                <!-- Card / Barra Visível de Integração Nativa com Puca CRM -->
-        <div class="bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
+                <!-- Card / Barra de Integração Nativa com Puca CRM (EXCLUSIVO PARA ADMIN) -->
+        <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div class="flex items-center space-x-3">
                     <div class="p-2 bg-indigo-600 rounded-lg flex-shrink-0">
@@ -1184,15 +1184,18 @@
             const adminPanel = document.getElementById('admin-panel');
             const adminBadge = document.getElementById('admin-badge');
             const toggleBtnText = document.getElementById('admin-toggle-text');
+            const pucaCard = document.getElementById('puca-integration-card');
 
             if (isAdminLoggedIn) {
-                adminPanel.classList.remove('hidden');
-                adminBadge.classList.remove('hidden');
-                toggleBtnText.innerText = "Painel Admin Ativo";
+                if (adminPanel) adminPanel.classList.remove('hidden');
+                if (adminBadge) adminBadge.classList.remove('hidden');
+                if (pucaCard) pucaCard.classList.remove('hidden');
+                if (toggleBtnText) toggleBtnText.innerText = "Painel Admin Ativo";
             } else {
-                adminPanel.classList.add('hidden');
-                adminBadge.classList.add('hidden');
-                toggleBtnText.innerText = "Área Admin";
+                if (adminPanel) adminPanel.classList.add('hidden');
+                if (adminBadge) adminBadge.classList.add('hidden');
+                if (pucaCard) pucaCard.classList.add('hidden');
+                if (toggleBtnText) toggleBtnText.innerText = "Área Admin";
             }
         }
 
@@ -1478,7 +1481,8 @@
                 { name: 'Proposta', bg: 'bg-indigo-800' },
                 { name: 'Negociação', bg: 'bg-amber-500' },
                 { name: 'Assinatura', bg: 'bg-amber-600' },
-                { name: 'Ganho', bg: 'bg-emerald-600' },
+                { n
+ame: 'Ganho', bg: 'bg-emerald-600' },
                 { name: 'Perdido', bg: 'bg-rose-500' }
             ];
 
@@ -1487,8 +1491,7 @@
 
             funnelData.forEach(d => {
                 const stLower = d.etapa.toLowerCase().trim();
-                for (let st o
-f funnelStagesOrder) {
+                for (let st of funnelStagesOrder) {
                     if (stLower.includes(st.name.toLowerCase())) {
                         stageCounts[st.name.toLowerCase()]++;
                         break;
