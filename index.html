@@ -110,16 +110,17 @@
                     <div>
                         <h2 class="text-sm font-bold text-white flex items-center space-x-2">
                             <span>Autenticação API & Sincronização Puca CRM</span>
-                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + Server Proxy</span>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
                         </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API e carregar as oportunidades.</p>
+                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar a busca.</p>
                     </div>
                 </div>
 
                 <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
-                    <input type="text" id="puca-host" placeholder="lifeapps.puca.app" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
-                    <input type="text" id="puca-user" placeholder="Usuário Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
-                    <input type="password" id="puca-pass" placeholder="Senha Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
+                    <input type="text" id="puca-host" placeholder="lifeapps.puca.app" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-40 font-mono">
+                    <input type="text" id="puca-user" placeholder="Usuário Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-32 font-mono">
+                    <input type="password" id="puca-pass" placeholder="Senha Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-32 font-mono">
+                    <input type="text" id="puca-proxy" placeholder="Proxy (Opcional)" class="bg-slate-800 border border-slate-700 text-slate-400 text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono" title="Opcional: Cole seu Worker do Cloudflare para contornar travamentos do GitHub Pages em definitivo">
                     <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm whitespace-nowrap w-full sm:w-auto">
                         <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
                         <span>Sincronizar via Login Puca</span>
@@ -379,6 +380,7 @@
 
         const PUCA_HOST_KEY = 'bi_puca_crm_host';
         const PUCA_USER_KEY = 'bi_puca_crm_user';
+        const PUCA_PROXY_KEY = 'bi_puca_crm_proxy';
         const PUCA_DEFAULT_PASS = '92f24Uh^W218';
 
         let rawData = [];
@@ -421,9 +423,11 @@
         function loadPucaCredentials() {
             const host = localStorage.getItem(PUCA_HOST_KEY) || 'lifeapps.puca.app';
             const user = localStorage.getItem(PUCA_USER_KEY) || 'rafael.nascimento';
+            const proxy = localStorage.getItem(PUCA_PROXY_KEY) || '';
             if (document.getElementById('puca-host')) document.getElementById('puca-host').value = host;
             if (document.getElementById('puca-user')) document.getElementById('puca-user').value = user;
             if (document.getElementById('puca-pass')) document.getElementById('puca-pass').value = PUCA_DEFAULT_PASS;
+            if (document.getElementById('puca-proxy')) document.getElementById('puca-proxy').value = proxy;
         }
 
         function loadForecastData() {
@@ -675,7 +679,7 @@
         }
 
         // =========================================================================
-        // RESTAURAÇÃO DOS 5 GRÁFICOS VISUAIS (CHART.JS)
+        // RENDERING DOS 5 GRÁFICOS VISUAIS (CHART.JS)
         // =========================================================================
         function renderAllCharts() {
             renderMonthlyChart();
@@ -911,34 +915,36 @@
         }
 
         // =========================================================================
-        // REQUISIÇÕES DA API COM PROXY SERVERLESS (EVITA BLOQUEIO CORS)
+        // REQUISIÇÕES DA API COM SUPORTE A PROXY PERSONALIZADO OU ENCAMINHAMENTO DIRETO
         // =========================================================================
-        async function fetchWithCorsFallback(url, options) {
+        async function fetchWithCorsFallback(targetUrl, options) {
+            const customProxy = document.getElementById('puca-proxy') ? document.getElementById('puca-proxy').value.trim() : '';
+
+            // Se o admin preencheu um Worker do Cloudflare próprio, usa ele prioritariamente
+            if (customProxy) {
+                const proxyEndpoint = customProxy.replace(/\/$/, '') + new URL(targetUrl).pathname;
+                return await fetch(proxyEndpoint, options);
+            }
+
             try {
-                // Tenta requisição direta primeiro
-                const response = await fetch(url, options);
+                // Tenta a requisição HTTP direta primeiro
+                const response = await fetch(targetUrl, options);
                 if (response.ok) return response;
                 throw new Error(`HTTP Status ${response.status}`);
             } catch (err) {
-                console.warn("Redirecionando para o Proxy de Servidor para ignorar restrições de CORS no GitHub Pages:", url);
-                
-                // Extrai o host de destino para encaminhamento no cabeçalho x-target-host
-                const urlObj = new URL(url);
+                // Fallbacks usando proxies com encaminhamento de header x-target-host
+                const urlObj = new URL(targetUrl);
                 const customHeaders = new Headers(options.headers || {});
                 customHeaders.set("x-target-host", urlObj.host);
 
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                const proxy1 = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
                 try {
-                    const resProxy = await fetch(proxyUrl, {
-                        ...options,
-                        headers: customHeaders
-                    });
+                    const resProxy = await fetch(proxy1, { ...options, headers: customHeaders });
                     if (resProxy.ok) return resProxy;
                 } catch(e) {}
                 
-                // Fallback secundário
-                const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                return await fetch(proxyUrl2, { ...options, headers: customHeaders });
+                const proxy2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                return await fetch(proxy2, { ...options, headers: customHeaders });
             }
         }
 
@@ -952,6 +958,7 @@
             const host = sanitizeHost(rawHost);
             const username = document.getElementById('puca-user').value.trim();
             const password = document.getElementById('puca-pass').value.trim();
+            const proxyInput = document.getElementById('puca-proxy') ? document.getElementById('puca-proxy').value.trim() : '';
 
             if (!host || !username || !password) {
                 alert("Por favor, preencha Host, Usuário e Senha do Puca CRM.");
@@ -960,6 +967,7 @@
 
             localStorage.setItem(PUCA_HOST_KEY, host);
             localStorage.setItem(PUCA_USER_KEY, username);
+            if (proxyInput) localStorage.setItem(PUCA_PROXY_KEY, proxyInput);
 
             const recordCountEl = document.getElementById('record-count');
             if (recordCountEl) recordCountEl.innerText = "Autenticando no Puca CRM...";
