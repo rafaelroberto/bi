@@ -838,70 +838,43 @@
         }
 
         // INICIALIZAÇÃO DE DADOS (SUPABASE -> LOCALSTORAGE -> EMBUTIDO)
-        async function initDataset() {
-            let loadedFromSupabase = false;
-            let importTimestamp = null;
+        // INICIALIZAÇÃO INSTANTÂNEA DOS DADOS (SÍNCRONA + ASSÍNCRONA SEM BLOQUEIO)
+        function initDataset() {
+            let importTimestamp = "Oficial da Planilha";
 
-            if (supabaseClient) {
-                try {
-                    const { data, error } = await supabaseClient
-                        .from('comercial_deals')
-                        .select('*')
-                        .order('data_iso', { ascending: false });
-
-                    if (!error && data && data.length > 0) {
-                        rawData = data.map(item => ({
-                            chave: item.id || item.chave,
-                            titulo: item.titulo || '',
-                            data: item.data_raw || item.data || '',
-                            data_iso: item.data_iso || '',
-                            year_month: item.year_month || '',
-                            usuario: item.usuario || 'Não Atribuído',
-                            etapa: item.etapa || 'Sem Etapa',
-                            indicacao_raw: item.indicacao_raw || 'Não Informada',
-                            indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario),
-                            razao: item.razao || item.titulo || '',
-                            motivo_perda: item.motivo_perda || '',
-                            data_perda: item.data_perda || ''
+            // 1. CARREGAMENTO IMEDIATO SÍNCRONO DA BASE OFICIAL OU LOCALSTORAGE (0ms)
+            try {
+                const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+                const savedTime = localStorage.getItem(LOCAL_STORAGE_META_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.length > 0) {
+                        rawData = parsed.map(item => ({
+                            ...item,
+                            indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario)
                         }));
-                        if (data[0] && data[0].created_at) {
-                            const d = new Date(data[0].created_at);
-                            importTimestamp = d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-                        }
-                        loadedFromSupabase = true;
-                    }
-                } catch (err) {
-                    console.warn("Consulta ao Supabase não respondeu, buscando local:", err);
-                }
-            }
-
-            if (!loadedFromSupabase) {
-                try {
-                    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-                    const savedTime = localStorage.getItem(LOCAL_STORAGE_META_KEY);
-                    if (saved) {
-                        const parsed = JSON.parse(saved);
-                        if (parsed && parsed.length > 0) {
-                            rawData = parsed.map(item => ({
-                                ...item,
-                                indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario)
-                            }));
-                            importTimestamp = savedTime || "Salvo Localmente";
-                        } else {
-                            loadDefaultDataset();
-                            importTimestamp = "Oficial da Planilha";
-                        }
+                        importTimestamp = savedTime || "Salvo Localmente";
                     } else {
                         loadDefaultDataset();
-                        importTimestamp = "Oficial da Planilha";
                     }
-                } catch (err) {
+                } else {
                     loadDefaultDataset();
-                    importTimestamp = "Oficial da Planilha";
                 }
+            } catch (err) {
+                loadDefaultDataset();
             }
 
-            if (rawData.length > 0) {
+            // 2. EXIBIR E RENDERIZAR TELA IMEDIATAMENTE SEMENTE TRAVAMENTOS (0ms)
+            renderFullDashboardInstant(importTimestamp);
+
+            // 3. CONSULTA EM SEGUNDO PLANO (SUPABASE) COM TIMEOUT DE SEGURAÇA
+            if (supabaseClient) {
+                fetchSupabaseDataBackground();
+            }
+        }
+
+        function renderFullDashboardInstant(importTimestamp) {
+            if (rawData && rawData.length > 0) {
                 document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('dashboard-content').classList.remove('hidden');
 
@@ -913,8 +886,7 @@
                 loadForecastData();
                 populateDropdowns();
                 populateFunnelSellerDropdown();
-                
-                // Forçar cópia inicial completa dos dados para carregamento automático na abertura
+
                 filteredData = [...rawData];
                 currentPage = 1;
                 applySortingToData();
@@ -928,13 +900,47 @@
                 renderTable();
             } else {
                 document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('empty-title').innerText = "Nenhuma planilha salva no momento";
-                document.getElementById('empty-desc').innerText = "O Administrador ainda não salvou nenhuma planilha no painel.";
                 document.getElementById('dashboard-content').classList.add('hidden');
-                document.getElementById('import-time-badge').classList.add('hidden');
-                document.getElementById('record-count').innerText = "Aguardando planilha...";
+                document.getElementById('record-count').innerText = "0 registros";
             }
         }
+
+        async function fetchSupabaseDataBackground() {
+            try {
+                // Timeout de segurança de 1.5s
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout Supabase")), 1500));
+                const fetchPromise = supabaseClient.from('comercial_deals').select('*').order('data_iso', { ascending: false });
+
+                const res = await Promise.race([fetchPromise, timeoutPromise]);
+                if (res && res.data && res.data.length > 0) {
+                    rawData = res.data.map(item => ({
+                        chave: item.id || item.chave,
+                        titulo: item.titulo || '',
+                        data: item.data_raw || item.data || '',
+                        data_iso: item.data_iso || '',
+                        year_month: item.year_month || '',
+                        usuario: item.usuario || 'Não Atribuído',
+                        etapa: item.etapa || 'Sem Etapa',
+                        indicacao_raw: item.indicacao_raw || 'Não Informada',
+                        indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario),
+                        razao: item.razao || item.titulo || '',
+                        motivo_perda: item.motivo_perda || '',
+                        data_perda: item.data_perda || ''
+                    }));
+
+                    let importTimestamp = "Oficial da Planilha";
+                    if (res.data[0] && res.data[0].created_at) {
+                        const d = new Date(res.data[0].created_at);
+                        importTimestamp = d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                    }
+
+                    renderFullDashboardInstant(importTimestamp);
+                }
+            } catch (err) {
+                console.warn("Consulta ao Supabase em segundo plano não respondeu ou expirou, mantendo dados locais carregados instantaneamente.");
+            }
+        }
+
 
         function loadDefaultDataset() {
             rawData = defaultRawDataset.map(item => ({
@@ -1492,8 +1498,8 @@
 
             if (selectedOrigins.length === 0) {
                 labelEl.innerText = "Nenhuma Origem Selecionada";
-                labelEl.className = "truncate text-r
-ose-500 font-semibold";
+                labelEl.className
+ = "truncate text-rose-500 font-semibold";
             } else if (selectedOrigins.length === allOrigs.length) {
                 labelEl.innerText = "Todas as Origens Selecionadas";
                 labelEl.className = "truncate font-medium text-slate-700";
