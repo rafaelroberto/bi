@@ -129,34 +129,6 @@
     <!-- Main Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-                <!-- Card / Barra de Integração Nativa com Puca CRM (Autenticação Usuário/Senha - EXCLUSIVO PARA ADMIN) -->
-        <div id="puca-integration-card" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-800 space-y-3 no-pdf">
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2 bg-indigo-600 rounded-lg flex-shrink-0">
-                        <i data-lucide="key-round" class="w-5 h-5 text-white"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-sm font-bold text-white flex items-center space-x-2">
-                            <span>Autenticação API & Sincronização Puca CRM</span>
-                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 font-extrabold px-2 py-0.5 rounded-full border border-indigo-500/30">JWT Login + POST /find</span>
-                        </h2>
-                        <p class="text-xs text-slate-400">Insira Host, Usuário e Senha do Puca para efetuar o login via API, obter o JWT e carregar as oportunidades.</p>
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
-                    <input type="text" id="puca-host" placeholder="Host (ex: meunegocio.puca.app)" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48 font-mono">
-                    <input type="text" id="puca-user" placeholder="Usuário Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
-                    <input type="password" id="puca-pass" placeholder="Senha Puca" class="bg-slate-800 border border-slate-700 text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-36 font-mono">
-                    <button onclick="salvarEPuxarPucaCRM()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm whitespace-nowrap w-full sm:w-auto">
-                        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
-                        <span>Sincronizar via Login Puca</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <!-- Barra de Filtros Globais Unificada -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200/80 space-y-4 no-pdf">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -791,7 +763,6 @@
         let chartMotivosPerda = null;
 
         document.addEventListener("DOMContentLoaded", () => {
-            loadPucaCredentials();
             lucide.createIcons();
             setupFileUpload();
             initDataset();
@@ -867,152 +838,23 @@
         }
 
         // INICIALIZAÇÃO DE DADOS (SUPABASE -> LOCALSTORAGE -> EMBUTIDO)
-        
-        // =========================================================================
-        // MÓDULO DE INTEGRAÇÃO COM A API DO PUCA CRM (VISÍVEL E DIRETA)
-        // =========================================================================
-        const PUCA_HOST_KEY = 'bi_puca_crm_host';
-        const PUCA_TOKEN_KEY = 'bi_puca_crm_token';
-
-        function loadPucaCredentials() {
-            const host = localStorage.getItem(PUCA_HOST_KEY) || '';
-            const token = localStorage.getItem(PUCA_TOKEN_KEY) || '';
-            const hostInput = document.getElementById('puca-host');
-            const tokenInput = document.getElementById('puca-token');
-            if (hostInput) hostInput.value = host;
-            if (tokenInput) tokenInput.value = token;
-        }
-
-        async function salvarEPuxarPucaCRM() {
-            const hostInput = document.getElementById('puca-host');
-            const tokenInput = document.getElementById('puca-token');
-
-            const host = hostInput ? hostInput.value.trim().replace(/^https?:\\/\//, '').replace(/\\/$/, '') : '';
-            const token = tokenInput ? tokenInput.value.trim() : '';
-
-            if (!host || !token) {
-                alert("Por favor, preencha o Host/Domínio e o Token Bearer da API do Puca CRM para sincronizar.");
-                return;
-            }
-
-            localStorage.setItem(PUCA_HOST_KEY, host);
-            localStorage.setItem(PUCA_TOKEN_KEY, token);
-
-            const countEl = document.getElementById('record-count');
-            if (countEl) countEl.innerText = "Consultando Puca CRM...";
-
-            await sincronizarComPucaCRM(host, token);
-        }
-
-        async function sincronizarComPucaCRM(host, token) {
-            const endpoint = `https://${host}/puca-crm-api/deal/find`;
-            const payload = {
-                "from": "puca_crm_api_deal",
-                "fields": [
-                    "puca_key",
-                    "title",
-                    "person_name",
-                    "user_name",
-                    "stage_name",
-                    "origin",
-                    "loss_reason",
-                    "created_at",
-                    "closed_at"
-                ],
-                "where": {
-                    "and": []
-                }
-            };
-
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Erro na API Puca CRM: Status ${response.status} - ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    alert("Conexão realizada com sucesso, mas nenhum registro de oportunidade foi retornado para esta consulta.");
-                    return;
-                }
-
-                rawData = data.map((item, idx) => {
-                    const chave = item.puca_key || item.id || idx + 1;
-                    const titulo = item.title || item.name || `Oportunidade ${chave}`;
-                    const razao = item.person_name || item.company_name || titulo;
-                    const usuario = item.user_name || item.owner || 'Não Atribuído';
-                    const etapa = item.stage_name || item.status || 'Prospecção';
-                    const indicacaoRaw = item.origin || item.source || 'Não Informada';
-                    const motivoPerda = item.loss_reason || '';
-                    const dataRaw = item.created_at || '';
-
-                    let dataIso = '';
-                    let yearMonth = '';
-                    if (dataRaw) {
-                        const dObj = new Date(dataRaw);
-                        if (!isNaN(dObj.getTime())) {
-                            dataIso = dObj.toISOString().split('T')[0];
-                            yearMonth = dataIso.substring(0, 7);
-                        }
-                    }
-
-                    return {
-                        chave: chave,
-                        titulo: String(titulo).trim(),
-                        data: dataRaw ? new Date(dataRaw).toLocaleString('pt-BR') : '',
-                        data_iso: dataIso,
-                        year_month: yearMonth,
-                        usuario: String(usuario).trim(),
-                        etapa: String(etapa).trim(),
-                        indicacao_raw: String(indicacaoRaw).trim(),
-                        indicacao: normalizeOrigem(indicacaoRaw, String(usuario).trim()),
-                        razao: String(razao).trim(),
-                        motivo_perda: String(motivoPerda).trim(),
-                        data_perda: item.closed_at ? new Date(item.closed_at).toLocaleString('pt-BR') : ''
-                    };
-                });
-
-                const nowStr = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-                localStorage.setItem(LOCAL_STORAGE_META_KEY, `Puca CRM (${nowStr})`);
-                saveSpreadsheetToStorage(rawData);
-
-                renderFullDashboardInstant(`Puca CRM (${nowStr})`);
-                alert(`Integração concluída com sucesso! ${rawData.length} oportunidades sincronizadas do Puca CRM.`);
-
-            } catch (err) {
-                console.error("Erro ao sincronizar com Puca CRM:", err);
-                alert(`Falha na comunicação com a API do Puca CRM:\n${err.message}\n\nVerifique se o Host, Token e permissões do robô/usuário estão corretos.`);
-            }
-        }
-
-
-        // INICIALIZAÇÃO DEFINITIVA E INFALÍVEL (GARANTE QUE O PAINEL NUNCA ABRA VAZIO)
+        // INICIALIZAÇÃO INSTANTÂNEA DOS DADOS (SÍNCRONA + ASSÍNCRONA SEM BLOQUEIO)
         function initDataset() {
             let importTimestamp = "Oficial da Planilha";
 
-            // 1. LIMPEZA DE CACHE ANTIGO SE VAZIO E CARREGAMENTO SÍNCRONO (0ms)
+            // 1. CARREGAMENTO IMEDIATO SÍNCRONO DA BASE OFICIAL OU LOCALSTORAGE (0ms)
             try {
                 const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
                 const savedTime = localStorage.getItem(LOCAL_STORAGE_META_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
+                    if (parsed && parsed.length > 0) {
                         rawData = parsed.map(item => ({
                             ...item,
                             indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario)
                         }));
                         importTimestamp = savedTime || "Salvo Localmente";
                     } else {
-                        // Se o localStorage estiver vazio ou corrompido, limpa e carrega o padrão oficial
-                        localStorage.removeItem(LOCAL_STORAGE_KEY);
                         loadDefaultDataset();
                     }
                 } else {
@@ -1022,48 +864,81 @@
                 loadDefaultDataset();
             }
 
-            // SE POR QUALQUER MOTIVO rawData ESTIVER VAZIO, FORÇA A BASE OFICIAL EMBUTIDA
-            if (!rawData || rawData.length === 0) {
-                loadDefaultDataset();
-                importTimestamp = "Oficial da Planilha";
-            }
-
-            // 2. RENDERIZAÇÃO IMEDIATA SEM ESPERAR NADA (0ms)
+            // 2. EXIBIR E RENDERIZAR TELA IMEDIATAMENTE SEMENTE TRAVAMENTOS (0ms)
             renderFullDashboardInstant(importTimestamp);
+
+            // 3. CONSULTA EM SEGUNDO PLANO (SUPABASE) COM TIMEOUT DE SEGURAÇA
+            if (supabaseClient) {
+                fetchSupabaseDataBackground();
+            }
         }
 
         function renderFullDashboardInstant(importTimestamp) {
-            if (!rawData || rawData.length === 0) {
-                loadDefaultDataset();
+            if (rawData && rawData.length > 0) {
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+
+                if (importTimestamp) {
+                    document.getElementById('import-time-val').innerText = importTimestamp;
+                    document.getElementById('import-time-badge').classList.remove('hidden');
+                }
+
+                loadForecastData();
+                populateDropdowns();
+                populateFunnelSellerDropdown();
+
+                filteredData = [...rawData];
+                currentPage = 1;
+                applySortingToData();
+                updateKPIs();
+                renderSellerRanking();
+                renderRankingTable();
+                renderMotivosPerda();
+                renderFunnelChart();
+                renderForecastModule();
+                renderCharts();
+                renderTable();
+            } else {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('dashboard-content').classList.add('hidden');
+                document.getElementById('record-count').innerText = "0 registros";
             }
+        }
 
-            document.getElementById('empty-state').classList.add('hidden');
-            document.getElementById('dashboard-content').classList.remove('hidden');
+        async function fetchSupabaseDataBackground() {
+            try {
+                // Timeout de segurança de 1.5s
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout Supabase")), 1500));
+                const fetchPromise = supabaseClient.from('comercial_deals').select('*').order('data_iso', { ascending: false });
 
-            if (importTimestamp) {
-                document.getElementById('import-time-val').innerText = importTimestamp;
-                document.getElementById('import-time-badge').classList.remove('hidden');
+                const res = await Promise.race([fetchPromise, timeoutPromise]);
+                if (res && res.data && res.data.length > 0) {
+                    rawData = res.data.map(item => ({
+                        chave: item.id || item.chave,
+                        titulo: item.titulo || '',
+                        data: item.data_raw || item.data || '',
+                        data_iso: item.data_iso || '',
+                        year_month: item.year_month || '',
+                        usuario: item.usuario || 'Não Atribuído',
+                        etapa: item.etapa || 'Sem Etapa',
+                        indicacao_raw: item.indicacao_raw || 'Não Informada',
+                        indicacao: normalizeOrigem(item.indicacao_raw || item.indicacao, item.usuario),
+                        razao: item.razao || item.titulo || '',
+                        motivo_perda: item.motivo_perda || '',
+                        data_perda: item.data_perda || ''
+                    }));
+
+                    let importTimestamp = "Oficial da Planilha";
+                    if (res.data[0] && res.data[0].created_at) {
+                        const d = new Date(res.data[0].created_at);
+                        importTimestamp = d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                    }
+
+                    renderFullDashboardInstant(importTimestamp);
+                }
+            } catch (err) {
+                console.warn("Consulta ao Supabase em segundo plano não respondeu ou expirou, mantendo dados locais carregados instantaneamente.");
             }
-
-            loadForecastData();
-            populateDropdowns();
-            populateFunnelSellerDropdown();
-
-            // Sincroniza cópia dos dados filtrados
-            filteredData = [...rawData];
-            currentPage = 1;
-            
-            // Aplica ordenação inicial por data
-            applySortingToData();
-
-            // Atualiza o texto do contador de registros imediatamente no topo
-            const countEl = document.getElementById('record-count');
-            if (countEl) {
-                countEl.innerText = `${filteredData.length} registros no total`;
-            }
-
-            // Executa a renderização blindada de todos os componentes
-            updateAllDashboardComponents();
         }
 
 
@@ -1135,7 +1010,14 @@
                 filteredData = [...rawData];
                 currentPage = 1;
                 applySortingToData();
-                updateAllDashboardComponents();
+                updateKPIs();
+                renderSellerRanking();
+                renderRankingTable();
+                renderMotivosPerda();
+                renderFunnelChart();
+                renderForecastModule();
+                renderCharts();
+                renderTable();
 
                 alert("Planilha restaurada para a base oficial!");
             }
@@ -1185,18 +1067,15 @@
             const adminPanel = document.getElementById('admin-panel');
             const adminBadge = document.getElementById('admin-badge');
             const toggleBtnText = document.getElementById('admin-toggle-text');
-            const pucaCard = document.getElementById('puca-integration-card');
 
             if (isAdminLoggedIn) {
-                if (adminPanel) adminPanel.classList.remove('hidden');
-                if (adminBadge) adminBadge.classList.remove('hidden');
-                if (pucaCard) pucaCard.classList.remove('hidden');
-                if (toggleBtnText) toggleBtnText.innerText = "Painel Admin Ativo";
+                adminPanel.classList.remove('hidden');
+                adminBadge.classList.remove('hidden');
+                toggleBtnText.innerText = "Painel Admin Ativo";
             } else {
-                if (adminPanel) adminPanel.classList.add('hidden');
-                if (adminBadge) adminBadge.classList.add('hidden');
-                if (pucaCard) pucaCard.classList.add('hidden');
-                if (toggleBtnText) toggleBtnText.innerText = "Área Admin";
+                adminPanel.classList.add('hidden');
+                adminBadge.classList.add('hidden');
+                toggleBtnText.innerText = "Área Admin";
             }
         }
 
@@ -1477,8 +1356,7 @@
             // Etapas na sequência do Funil Comercial
             const funnelStagesOrder = [
                 { name: 'Prospecção', bg: 'bg-indigo-500' },
-                { name: 'Qualificaç
-ão', bg: 'bg-indigo-600' },
+                { name: 'Qualificação', bg: 'bg-indigo-600' },
                 { name: 'Demonstração', bg: 'bg-indigo-700' },
                 { name: 'Proposta', bg: 'bg-indigo-800' },
                 { name: 'Negociação', bg: 'bg-amber-500' },
@@ -1620,7 +1498,8 @@
 
             if (selectedOrigins.length === 0) {
                 labelEl.innerText = "Nenhuma Origem Selecionada";
-                labelEl.className = "truncate text-rose-500 font-semibold";
+                labelEl.className
+ = "truncate text-rose-500 font-semibold";
             } else if (selectedOrigins.length === allOrigs.length) {
                 labelEl.innerText = "Todas as Origens Selecionadas";
                 labelEl.className = "truncate font-medium text-slate-700";
@@ -1677,70 +1556,6 @@
             return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
         }
 
-        
-        // =========================================================================
-        // MÓDULO RENDERIZADOR ROBUSTO E ISOLADO DE OPORTUNIDADES EM DETALHE (TABELA)
-        // =========================================================================
-
-        function updateAllDashboardComponents() {
-            // 1. RENDERIZAR TABELA EM PRIMEIRÍSSIMO LUGAR (NUNCA SUMIR)
-            try {
-                renderTable();
-            } catch (errTable) {
-                console.error("Erro na renderização da tabela:", errTable);
-            }
-
-            // 2. RENDERIZAR KPIS
-            try {
-                updateKPIs();
-            } catch (errKpi) {
-                console.error("Erro nos KPIs:", errKpi);
-            }
-
-            // 3. RENDERIZAR RANKING DE VENDEDORES
-            try {
-                renderSellerRanking();
-            } catch (errSell) {
-                console.error("Erro no ranking de vendedores:", errSell);
-            }
-
-            // 4. RENDERIZAR RANKING DE ORIGENS
-            try {
-                renderRankingTable();
-            } catch (errRank) {
-                console.error("Erro no ranking de origens:", errRank);
-            }
-
-            // 5. RENDERIZAR MOTIVOS DE PERDA
-            try {
-                renderMotivosPerda();
-            } catch (errMot) {
-                console.error("Erro nos motivos de perda:", errMot);
-            }
-
-            // 6. RENDERIZAR FUNIL VISUAL
-            try {
-                renderFunnelChart();
-            } catch (errFun) {
-                console.error("Erro no funil visual:", errFun);
-            }
-
-            // 7. RENDERIZAR FORECAST
-            try {
-                renderForecastModule();
-            } catch (errFore) {
-                console.error("Erro no forecast:", errFore);
-            }
-
-            // 8. RENDERIZAR GRÁFICOS DIVERSOS
-            try {
-                renderCharts();
-            } catch (errCharts) {
-                console.error("Erro nos gráficos:", errCharts);
-            }
-        }
-
-
         function applyFilters() {
             if (!rawData || rawData.length === 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
@@ -1776,32 +1591,33 @@
             let lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             const lastMonthStr = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
+            // Mapeamento dos nomes de origens selecionados limpos de acentos
             const selectedOriginsClean = (selectedOrigins || []).map(o => removeAccents(o));
-            const allOriginsCount = [...new Set(rawData.map(item => removeAccents(item.indicacao)))].length;
 
             filteredData = rawData.filter(d => {
-                // 1. Filtro por Etapa
+                // 1. Filtro por Etapa (Insensível a acentos/caixa)
                 if (etapaVal && etapaVal !== 'all') {
                     if (removeAccents(d.etapa) !== removeAccents(etapaVal)) return false;
                 }
 
-                // 2. Filtro por Vendedor
+                // 2. Filtro por Vendedor (Insensível a acentos/caixa)
                 if (userVal && userVal !== 'all') {
                     if (removeAccents(d.usuario) !== removeAccents(userVal)) return false;
                 }
 
-                // 3. Filtro por Origens
+                // 3. Filtro por Origens (Multi-seleção) - Só filtra se o usuário desmarcou alguma origem
+                const allOriginsCount = [...new Set(rawData.map(item => removeAccents(item.indicacao)))].length;
                 if (selectedOriginsClean.length > 0 && selectedOriginsClean.length < allOriginsCount) {
                     const origClean = removeAccents(d.indicacao);
                     if (!selectedOriginsClean.includes(origClean)) return false;
                 }
 
-                // 4. Data Específica
+                // 4. Data Específica da Etapa
                 if (exactDateVal && exactDateVal.trim() !== '') {
                     if (d.data_iso !== exactDateVal.trim()) return false;
                 }
 
-                // 5. Busca por texto
+                // 5. Busca por texto livre (Título, Razão Social ou Chave)
                 if (searchVal && searchVal !== '') {
                     const sNorm = removeAccents(searchVal);
                     const matchTitle = removeAccents(d.titulo).includes(sNorm);
@@ -1810,8 +1626,8 @@
                     if (!matchTitle && !matchRazao && !matchChave) return false;
                 }
 
-                // 6. Período
-                if (d.data_iso && periodVal && periodVal !== 'all') {
+                // 6. Período / Intervalo de Datas
+                if (d.data_iso) {
                     if (periodVal === 'this-month' && !d.data_iso.startsWith(thisMonthStr)) return false;
                     if (periodVal === 'last-month' && !d.data_iso.startsWith(lastMonthStr)) return false;
                     if (periodVal === '2026' && !d.data_iso.startsWith('2026')) return false;
@@ -1839,9 +1655,14 @@
 
             currentPage = 1;
             applySortingToData();
-
-            // RENDERIZAÇÃO BLINDADA DE TODOS OS COMPONENTES
-            updateAllDashboardComponents();
+            updateKPIs();
+            renderSellerRanking();
+            renderRankingTable();
+            renderMotivosPerda();
+            renderFunnelChart();
+            renderForecastModule();
+            renderCharts();
+            renderTable();
         }
 
         function updateKPIs() {
