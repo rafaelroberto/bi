@@ -558,8 +558,8 @@
 
         function updateKPIs() {
             const total = filteredData.length;
-            const ganhos = filteredData.filter(d => d.etapa.toLowerCase() === 'ganho').length;
-            const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido').length;
+            const ganhos = filteredData.filter(d => isGanhoEtapa(d.etapa)).length;
+            const perdidos = filteredData.filter(d => isPerdidoEtapa(d.etapa)).length;
             const pipeline = total - (ganhos + perdidos);
             const conversion = (ganhos + perdidos) > 0 ? ((ganhos / (ganhos + perdidos)) * 100).toFixed(1) : 0;
 
@@ -569,6 +569,18 @@
             document.getElementById('kpi-pipeline').innerText = pipeline;
             document.getElementById('kpi-conversion').innerText = `${conversion}%`;
             document.getElementById('record-count').innerText = `${total} registros no total`;
+        }
+
+        function isGanhoEtapa(etapaStr) {
+            if (!etapaStr) return false;
+            const e = String(etapaStr).toLowerCase();
+            return e.includes('ganho') || e.includes('vendido') || e.includes('fechado') || e.includes('sucesso') || e.includes('aprovado');
+        }
+
+        function isPerdidoEtapa(etapaStr) {
+            if (!etapaStr) return false;
+            const e = String(etapaStr).toLowerCase();
+            return e.includes('perdid') || e.includes('perda') || e.includes('cancelad') || e.includes('recusad') || e.includes('desist');
         }
 
         function applySortingToData() {
@@ -604,7 +616,7 @@
                     <td class="px-4 py-3 font-semibold text-slate-800">${item.razao}</td>
                     <td class="px-4 py-3 text-slate-500">${item.data}</td>
                     <td class="px-4 py-3 font-medium text-slate-700">${item.usuario}</td>
-                    <td class="px-4 py-3"><span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-indigo-50 text-indigo-700">${item.etapa}</span></td>
+                    <td class="px-4 py-3"><span class="px-2.5 py-1 text-[11px] font-semibold rounded-full ${isGanhoEtapa(item.etapa) ? 'bg-emerald-50 text-emerald-700' : isPerdidoEtapa(item.etapa) ? 'bg-rose-50 text-rose-700' : 'bg-indigo-50 text-indigo-700'}">${item.etapa}</span></td>
                     <td class="px-4 py-3 font-semibold text-indigo-600">${item.indicacao}</td>
                     <td class="px-4 py-3 text-slate-500">${item.motivo_perda || '-'}</td>
                     <td class="px-4 py-3 text-center">
@@ -646,10 +658,10 @@
         }
 
         function renderMonthlyChart() {
-            const months = [...new Set(filteredData.map(d => d.year_month))].sort();
+            const months = [...new Set(filteredData.map(d => d.year_month).filter(Boolean))].sort();
             const criados = months.map(m => filteredData.filter(d => d.year_month === m).length);
-            const ganhos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'ganho').length);
-            const perdidos = months.map(m => filteredData.filter(d => d.year_month === m && d.etapa.toLowerCase() === 'perdido').length);
+            const ganhos = months.map(m => filteredData.filter(d => d.year_month === m && isGanhoEtapa(d.etapa)).length);
+            const perdidos = months.map(m => filteredData.filter(d => d.year_month === m && isPerdidoEtapa(d.etapa)).length);
 
             if (chartMonthlyTrend) chartMonthlyTrend.destroy();
             const canvas = document.getElementById('chart-monthly-trend');
@@ -681,25 +693,22 @@
                 funnelData = filteredData.filter(d => d.usuario === selectedSeller);
             }
 
-            const stages = [
-                { name: 'Prospecção', bg: 'bg-indigo-500' },
-                { name: 'Qualificação', bg: 'bg-indigo-600' },
-                { name: 'Demonstração', bg: 'bg-indigo-700' },
-                { name: 'Proposta', bg: 'bg-indigo-800' },
-                { name: 'Negociação', bg: 'bg-amber-500' },
-                { name: 'Ganho', bg: 'bg-emerald-600' },
-                { name: 'Perdido', bg: 'bg-rose-500' }
-            ];
+            const stagesMap = {};
+            funnelData.forEach(d => {
+                const st = d.etapa || 'Outros';
+                stagesMap[st] = (stagesMap[st] || 0) + 1;
+            });
 
             const total = funnelData.length || 1;
-            container.innerHTML = stages.map(st => {
-                const count = funnelData.filter(d => d.etapa.toLowerCase().includes(st.name.toLowerCase())).length;
+            container.innerHTML = Object.keys(stagesMap).map(st => {
+                const count = stagesMap[st];
                 const pct = ((count / total) * 100).toFixed(1);
+                const bg = isGanhoEtapa(st) ? 'bg-emerald-600' : isPerdidoEtapa(st) ? 'bg-rose-500' : 'bg-indigo-600';
                 return `
                     <div class="flex items-center space-x-3 text-xs">
-                        <span class="w-24 font-semibold text-slate-700 text-right truncate">${st.name}</span>
+                        <span class="w-28 font-semibold text-slate-700 text-right truncate" title="${st}">${st}</span>
                         <div class="flex-1 bg-slate-100 rounded-lg h-6 overflow-hidden flex items-center p-1">
-                            <div class="${st.bg} h-full rounded transition-all duration-500 flex items-center justify-end px-2" style="width: ${Math.max((count/total)*100, 10)}%;">
+                            <div class="${bg} h-full rounded transition-all duration-500 flex items-center justify-end px-2" style="width: ${Math.max((count/total)*100, 8)}%;">
                                 <span class="text-[10px] font-bold text-white">${count}</span>
                             </div>
                         </div>
@@ -710,8 +719,8 @@
 
         function renderForecastChart() {
             const forecastDeals = filteredData.filter(d => forecastSet.has(d.chave));
-            const ganhos = forecastDeals.filter(d => d.etapa.toLowerCase() === 'ganho').length;
-            const perdidos = forecastDeals.filter(d => d.etapa.toLowerCase() === 'perdido').length;
+            const ganhos = forecastDeals.filter(d => isGanhoEtapa(d.etapa)).length;
+            const perdidos = forecastDeals.filter(d => isPerdidoEtapa(d.etapa)).length;
             const emAndamento = forecastDeals.length - (ganhos + perdidos);
 
             if (chartForecast) chartForecast.destroy();
@@ -730,8 +739,8 @@
 
         function renderUserChart() {
             const users = [...new Set(filteredData.map(d => d.usuario))];
-            const ganhos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'ganho').length);
-            const perdidos = users.map(u => filteredData.filter(d => d.usuario === u && d.etapa.toLowerCase() === 'perdido').length);
+            const ganhos = users.map(u => filteredData.filter(d => d.usuario === u && isGanhoEtapa(d.etapa)).length);
+            const perdidos = users.map(u => filteredData.filter(d => d.usuario === u && isPerdidoEtapa(d.etapa)).length);
 
             if (chartUser) chartUser.destroy();
             const canvas = document.getElementById('chart-user-perf');
@@ -751,7 +760,7 @@
         }
 
         function renderMotivosChart() {
-            const perdidos = filteredData.filter(d => d.etapa.toLowerCase() === 'perdido');
+            const perdidos = filteredData.filter(d => isPerdidoEtapa(d.etapa));
             const motivosMap = {};
             perdidos.forEach(d => {
                 const m = d.motivo_perda || 'Não informado';
@@ -773,8 +782,63 @@
         }
 
         // =========================================================================
-        // UPLOAD DA PLANILHA EXCEL/CSV COM DATA E HORA DE IMPORTAÇÃO
+        // UPLOAD INTELIGENTE DA PLANILHA EXCEL/CSV
         // =========================================================================
+        function findColumnValue(row, possibleNames) {
+            const keys = Object.keys(row);
+            for (let name of possibleNames) {
+                const targetKey = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+                if (targetKey && row[targetKey] !== undefined && row[targetKey] !== null) {
+                    return row[targetKey];
+                }
+            }
+            // Segunda varredura por busca parcial de texto
+            for (let name of possibleNames) {
+                const targetKey = keys.find(k => k.trim().toLowerCase().includes(name.toLowerCase()));
+                if (targetKey && row[targetKey] !== undefined && row[targetKey] !== null) {
+                    return row[targetKey];
+                }
+            }
+            return null;
+        }
+
+        function parseExcelDate(val) {
+            if (!val) return { display: '', iso: '', year_month: '' };
+
+            // Se for número de série de data do Excel
+            if (typeof val === 'number') {
+                const dateObj = XLSX.SSF.parse_date_code(val);
+                if (dateObj) {
+                    const y = dateObj.y;
+                    const m = String(dateObj.m).padStart(2, '0');
+                    const d = String(dateObj.d).padStart(2, '0');
+                    return { display: `${d}/${m}/${y}`, iso: `${y}-${m}-${d}`, year_month: `${y}-${m}` };
+                }
+            }
+
+            const strVal = String(val).trim();
+
+            // Se formato DD/MM/AAAA ou DD/MM/AAAA HH:MM
+            const matchBR = strVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (matchBR) {
+                const d = String(matchBR[1]).padStart(2, '0');
+                const m = String(matchBR[2]).padStart(2, '0');
+                const y = matchBR[3];
+                return { display: `${d}/${m}/${y}`, iso: `${y}-${m}-${d}`, year_month: `${y}-${m}` };
+            }
+
+            // Se formato AAAA-MM-DD
+            const matchISO = strVal.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (matchISO) {
+                const y = matchISO[1];
+                const m = String(matchISO[2]).padStart(2, '0');
+                const d = String(matchISO[3]).padStart(2, '0');
+                return { display: `${d}/${m}/${y}`, iso: `${y}-${m}-${d}`, year_month: `${y}-${m}` };
+            }
+
+            return { display: strVal, iso: '', year_month: '' };
+        }
+
         function setupExcelUpload() {
             const fileInput = document.getElementById('excel-upload');
             if (!fileInput) return;
@@ -790,27 +854,39 @@
                         const workbook = XLSX.read(data, { type: 'array' });
                         const firstSheet = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[firstSheet];
-                        const json = XLSX.utils.sheet_to_json(worksheet);
+                        const json = XLSX.utils.sheet_to_json(worksheet, { raw: true });
 
                         if (!json || json.length === 0) {
                             alert("A planilha enviada não possui registros válidos.");
                             return;
                         }
 
-                        rawData = json.map((row, idx) => ({
-                            chave: row['Chave Única'] || row['Chave'] || idx + 1,
-                            titulo: row['Título'] || row['Titulo'] || '',
-                            data: row['Data'] || row['Data de entrada na etapa'] || '',
-                            data_iso: row['Data ISO'] || (row['Data'] ? String(row['Data']).split(' ')[0] : ''),
-                            year_month: row['Ano-Mês'] || (row['Data'] ? String(row['Data']).substring(0, 7) : ''),
-                            usuario: row['Usuário'] || row['Vendedor'] || 'Não Atribuído',
-                            etapa: row['Etapa'] || row['Status'] || 'Prospecção',
-                            indicacao: row['Origem'] || row['Indicação'] || 'Não Informada',
-                            razao: row['Razão Social'] || row['Cliente'] || row['Título'] || 'Sem Nome',
-                            motivo_perda: row['Motivo de Perda'] || ''
-                        }));
+                        rawData = json.map((row, idx) => {
+                            const rawChave = findColumnValue(row, ['Chave Única', 'Chave', 'ID', 'Codigo', 'Key', 'puca_key', 'Oportunidade']) || (idx + 1);
+                            const rawTitulo = findColumnValue(row, ['Título', 'Titulo', 'Title', 'Nome do Negocio', 'Oportunidade']) || '';
+                            const rawRazao = findColumnValue(row, ['Razão Social', 'Razao Social', 'Cliente', 'Empresa', 'Person Name', 'Nome', 'Título']) || rawTitulo || 'Sem Nome';
+                            const rawUsuario = findColumnValue(row, ['Usuário', 'Usuario', 'Vendedor', 'Responsavel', 'User Name', 'User']) || 'Não Atribuído';
+                            const rawEtapa = findColumnValue(row, ['Etapa', 'Status', 'Fase', 'Estágio', 'Stage Name', 'Situacao']) || 'Em Andamento';
+                            const rawIndicacao = findColumnValue(row, ['Origem', 'Indicação', 'Indicacao', 'Origin', 'Canal']) || 'Não Informada';
+                            const rawMotivo = findColumnValue(row, ['Motivo de Perda', 'Motivo Perda', 'Loss Reason', 'Motivo']) || '';
+                            const rawDataVal = findColumnValue(row, ['Data', 'Data de entrada na etapa', 'Created At', 'Data Criacao', 'Data Entrada']);
 
-                        // DATA E HORA EXATA DO SUBIMENTO DA PLANILHA
+                            const parsedDate = parseExcelDate(rawDataVal);
+
+                            return {
+                                chave: rawChave,
+                                titulo: String(rawTitulo),
+                                razao: String(rawRazao),
+                                usuario: String(rawUsuario),
+                                etapa: String(rawEtapa),
+                                indicacao: String(rawIndicacao),
+                                motivo_perda: rawMotivo ? String(rawMotivo) : '',
+                                data: parsedDate.display,
+                                data_iso: parsedDate.iso,
+                                year_month: parsedDate.year_month
+                            };
+                        });
+
                         const now = new Date();
                         const dataHoraFormatted = now.toLocaleDateString('pt-BR') + ' às ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                         const timeBadgeText = `${file.name} (${dataHoraFormatted})`;
@@ -820,14 +896,11 @@
 
                         document.getElementById('import-time-val').innerText = timeBadgeText;
                         renderFullDashboardInstant();
-                        alert(`Planilha "${file.name}" subida com sucesso!
-
-Data/Hora: ${dataHoraFormatted}
-Registros: ${rawData.length}`);
+                        alert(`Planilha "${file.name}" processada com sucesso!\n\nData/Hora: ${dataHoraFormatted}\nRegistros: ${rawData.length}`);
 
                     } catch (err) {
                         console.error("Erro ao ler Excel:", err);
-                        alert("Erro ao processar a planilha. Verifique o formato do arquivo.");
+                        alert("Erro ao processar a planilha. Verifique a estrutura do arquivo.");
                     }
                 };
                 reader.readAsArrayBuffer(file);
