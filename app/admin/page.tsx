@@ -50,7 +50,7 @@ export default function AdminDashboard() {
   const [buscaClienteForecast, setBuscaClienteForecast] = useState('')
   const [savingForecastId, setSavingForecastId] = useState<string | null>(null)
 
-  // Formulário de Cadastro de Usuário do Painel
+  // Formulário de Cadastro de Usuário
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização via API com Usuário e Senha conforme documentação
+  // Sincronização Adaptada para Compatibilidade de Payload
   async function handleSyncPucaUserPass() {
     let user = pucaUsername.trim()
     let pass = pucaPassword.trim()
@@ -121,13 +121,13 @@ export default function AdminDashboard() {
     }
 
     setLoading(true)
-    setStatusMsg('1/3 - Efetuando login via /puca-base-api/puca-user/system_user/login...')
+    setStatusMsg('1/3 - Efetuando login no PUCA CRM...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
       const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-base-api/puca-user/system_user/login')
 
-      // 1. POST em /puca-base-api/puca-user/system_user/login
+      // 1. Autenticação no PUCA
       const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,7 +144,6 @@ export default function AdminDashboard() {
         throw new Error(`Falha no login do PUCA (Status HTTP ${loginRes.status}).`)
       }
 
-      // Tratamento da resposta JWT em string conforme especificação técnica
       let rawToken = await loginRes.text()
       let token = rawToken.replace(/^"|"$/g, '').trim()
 
@@ -152,62 +151,63 @@ export default function AdminDashboard() {
         throw new Error('Não foi possível extrair a string JWT do PUCA CRM.')
       }
 
-      setStatusMsg('2/3 - Autenticação com sucesso! Consultando a view user_funil_venda...')
+      setStatusMsg('2/3 - Login efetuado com sucesso! Consultando a view user_funil_venda...')
 
-      // 2. Chamada à view no módulo CRUD com o JWT no header Authorization
       const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
 
-      const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+      // 2. Consulta à View sem filtro estrito de campos para evitar o HTTP 400
+      let viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
         method: 'POST',
         headers: {
           'Authorization': token,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: 'user_funil_venda',
-          fields: [
-            'Chave Única',
-            'Título',
-            'Data de criação do registro',
-            'Data de entrada na etapa',
-            'Nome de Usuário',
-            'Nome',
-            'Indicação',
-            'Razão Social',
-            'Nome.1'
-          ]
+          from: 'user_funil_venda'
         })
       })
 
+      // Se a view retornar 400 sem fields, tenta o segundo formato de payload
+      if (!viewRes.ok && viewRes.status === 400) {
+        viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        })
+      }
+
       if (!viewRes.ok) {
-        throw new Error(`Erro ao consultar dados no PUCA CRM (Status ${viewRes.status}). Verifique as permissões da conta.`)
+        throw new Error(`Erro na consulta (HTTP ${viewRes.status}). Verifique as permissões do usuário no dicionário do PUCA.`)
       }
 
       const rawData = await viewRes.json()
       const rows = rawData.data || rawData
 
       if (!Array.isArray(rows)) {
-        throw new Error('A API do PUCA respondeu, mas não retornou a lista de oportunidades.')
+        throw new Error('A API do PUCA respondeu, mas o retorno não é uma lista de oportunidades.')
       }
 
       setStatusMsg(`3/3 - Salvando ${rows.length} registros atualizados no B.I....`)
 
-      // 3. Atualização no Supabase
+      // 3. Atualização dos Dados no Supabase
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
-        const rawStatus = (item['Nome'] || '').toString().trim()
+        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || '').toString().trim()
         let statusFinal = 'Aberto'
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
 
         return {
-          cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
-          vendedor: item['Nome de Usuário'] || 'Não Definido',
-          origem: item['Indicação'] || 'Outros',
+          cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || 'N/A',
+          vendedor: item['Nome de Usuário'] || item['vendedor'] || 'Não Definido',
+          origem: item['Indicação'] || item['origem'] || 'Outros',
           etapa: rawStatus || 'Inicial',
           status: statusFinal,
-          motivo_perda: item['Nome.1'] || null,
+          motivo_perda: item['Nome.1'] || item['motivo_perda'] || null,
           data_criacao: item['Data de criação do registro'] ? parseBRDate(item['Data de criação do registro']) || new Date().toISOString() : new Date().toISOString(),
           data_mudanca_etapa: item['Data de entrada na etapa'] ? parseBRDate(item['Data de entrada na etapa']) : null,
         }
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
-      setStatusMsg('Erro na Sincronização: ' + err.message)
+      setStatusMsg('Aviso na Sincronização: ' + err.message)
     }
 
     setLoading(false)
@@ -455,7 +455,7 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Gestão da Base de Dados - Integração PUCA CRM por Usuário e Senha */}
+      {/* Gestão da Base de Dados - Integração PUCA CRM */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou Login PUCA CRM)</h2>
         <p className="text-xs text-slate-500 mb-4">Insira o Usuário e Senha do PUCA CRM para sincronizar via API oficial (`puca-base-api`).</p>
