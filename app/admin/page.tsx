@@ -34,7 +34,6 @@ export default function AdminDashboard() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
-  // Estado para Alteração Direta de Senha de Usuários
   const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
   const [inputNovaSenha, setInputNovaSenha] = useState('')
 
@@ -100,48 +99,48 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Direta da API do PUCA CRM
+  // Sincronização da API do PUCA CRM com Tratamento Anti-CORS
   async function handleSyncPucaAutomatic() {
-    const pucaApiKey = 'COLE_SUA_PUCA_API_KEY_AQUI'
-    const pucaBaseUrl = 'https://lifeapps.puca.app'
-
-    let apiKeyParaUsar = pucaApiKey
-
-    if (!apiKeyParaUsar || apiKeyParaUsar === 'COLE_SUA_PUCA_API_KEY_AQUI') {
-      const solicitada = prompt('Digite sua PUCA_API_KEY para autenticar e sincronizar:')
-      if (!solicitada) return
-      apiKeyParaUsar = solicitada.trim()
-    }
+    const solicitada = prompt('Digite sua PUCA_API_KEY para autenticar no CRM e sincronizar:')
+    if (!solicitada) return
+    const apiKeyParaUsar = solicitada.trim()
 
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
+    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM (via Proxy Seguro)...')
 
     try {
-      const loginRes = await fetch(`${pucaBaseUrl}/puca-user/system_user/login`, {
+      // Uso de Proxy CORS para permitir fetch do GitHub Pages para o PUCA
+      const corsProxy = 'https://corsproxy.io/?'
+      const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-user/system_user/login')
+
+      // 1. Login no PUCA
+      const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': 'curl/8.5.0' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKeyParaUsar })
       })
 
       if (!loginRes.ok) {
-        throw new Error('Falha na autenticação do PUCA. Verifique a API Key do robô.')
+        throw new Error('Falha na autenticação do PUCA. Verifique se a API Key do robô está correta.')
       }
 
       const loginData = await loginRes.json()
       const token = loginData.token || loginData.session_token || loginData.data?.token
 
       if (!token) {
-        throw new Error('Token de sessão não retornado pelo PUCA.')
+        throw new Error('Token de sessão não foi retornado pelo PUCA.')
       }
 
       setStatusMsg('2/3 - Consultando dados da view user_funil_venda...')
 
-      const viewRes = await fetch(`${pucaBaseUrl}/puca-crud-api/user-table/user_funil_venda/find`, {
+      // 2. Consulta de Dados na View
+      const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
+
+      const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
         method: 'POST',
         headers: {
           'Authorization': token,
-          'Content-Type': 'application/json',
-          'User-Agent': 'curl/8.5.0'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           from: 'user_funil_venda',
@@ -160,14 +159,19 @@ export default function AdminDashboard() {
       })
 
       if (!viewRes.ok) {
-        throw new Error('Erro ao buscar oportunidades da view user_funil_venda.')
+        throw new Error('Erro ao consultar a view user_funil_venda no PUCA CRM.')
       }
 
       const rawData = await viewRes.json()
       const rows = rawData.data || rawData
 
+      if (!Array.isArray(rows)) {
+        throw new Error('Formato de resposta inesperado do PUCA CRM.')
+      }
+
       setStatusMsg(`3/3 - Atualizando ${rows.length} registros no banco de dados do B.I....`)
 
+      // 3. Atualização no Supabase
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
@@ -341,14 +345,12 @@ export default function AdminDashboard() {
     }
   }
 
-  // ALTERAÇÃO DIRETA DE SENHA (ADMIN OU USER)
   async function handleSaveNewPasswordDirect(userId: string) {
     if (!inputNovaSenha || inputNovaSenha.length < 6) {
       alert('A nova senha deve possuir pelo menos 6 caracteres.')
       return
     }
 
-    // Tenta atualizar diretamente via Admin API do Supabase Client
     const { error } = await supabase.auth.admin.updateUserById(userId, {
       password: inputNovaSenha
     })
@@ -358,7 +360,6 @@ export default function AdminDashboard() {
       setChangingPasswordUserId(null)
       setInputNovaSenha('')
     } else {
-      // Se não houver Service Role Key habilitada no frontend, envia o link direto de reset
       const user = profiles.find(p => p.id === userId)
       if (user?.email) {
         const { error: resetErr } = await supabase.auth.resetPasswordForEmail(user.email, {
@@ -840,7 +841,6 @@ export default function AdminDashboard() {
                 </td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-2 items-center">
-                    {/* Campo Direto de Edição de Senha */}
                     {changingPasswordUserId === p.id ? (
                       <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-300">
                         <input 
