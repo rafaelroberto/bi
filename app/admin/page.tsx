@@ -13,13 +13,18 @@ export default function AdminDashboard() {
   const [statusMsg, setStatusMsg] = useState('')
   const [userMsg, setUserMsg] = useState('')
 
-  // Formulário de Criação de Usuários
+  // Estado para Gestão de Usuários
+  const [profiles, setProfiles] = useState<any[]>([])
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [editRole, setEditRole] = useState('user')
+
+  // Formulário de Novo Usuário
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
 
   useEffect(() => {
-    async function checkAdmin() {
+    async function initAdmin() {
       // 1. Verifica Sessão
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -40,11 +45,20 @@ export default function AdminDashboard() {
         return
       }
 
+      await fetchProfiles()
       setLoading(false)
     }
 
-    checkAdmin()
+    initAdmin()
   }, [])
+
+  // Buscar todos os usuários
+  async function fetchProfiles() {
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+    if (!error && data) {
+      setProfiles(data)
+    }
+  }
 
   // Subir Planilha e Sobrescrever Banco
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -63,37 +77,17 @@ export default function AdminDashboard() {
         const ws = wb.Sheets[wsname]
         const data: any[] = XLSX.utils.sheet_to_json(ws)
 
-        // Limpa a base atual
         await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
-        // Mapeamento dinâmico do status
         const rows = data.map((item: any) => {
           const rawStatus = (
-            item['Status'] || 
-            item['status'] || 
-            item['Situação'] || 
-            item['Situacao'] || 
-            item['Fase'] || 
-            ''
+            item['Status'] || item['status'] || item['Situação'] || item['Situacao'] || item['Fase'] || ''
           ).toString().trim().toLowerCase()
 
           let statusFinal = 'Aberto'
-
-          if (
-            rawStatus.includes('ganho') || 
-            rawStatus.includes('ganha') || 
-            rawStatus.includes('fechado') || 
-            rawStatus.includes('vendido') || 
-            rawStatus.includes('won')
-          ) {
+          if (rawStatus.includes('ganho') || rawStatus.includes('ganha') || rawStatus.includes('fechado') || rawStatus.includes('vendido')) {
             statusFinal = 'Ganho'
-          } else if (
-            rawStatus.includes('perdido') || 
-            rawStatus.includes('perdida') || 
-            rawStatus.includes('cancelado') || 
-            rawStatus.includes('lost') || 
-            rawStatus.includes('perda')
-          ) {
+          } else if (rawStatus.includes('perdido') || rawStatus.includes('perdida') || rawStatus.includes('cancelado') || rawStatus.includes('perda')) {
             statusFinal = 'Perdido'
           }
 
@@ -107,23 +101,21 @@ export default function AdminDashboard() {
             data_criacao: item['Data Criacao'] || item['Data de Criacao'] || item['Data Criação']
               ? new Date(item['Data Criacao'] || item['Data de Criacao'] || item['Data Criação']).toISOString() 
               : new Date().toISOString(),
-            data_mudanca_etapa: item['Data Fechamento'] || item['Data Mudanca Etapa'] || item['Data Goal']
-              ? new Date(item['Data Fechamento'] || item['Data Mudanca Etapa'] || item['Data Goal']).toISOString() 
+            data_mudanca_etapa: item['Data Fechamento'] || item['Data Mudanca Etapa']
+              ? new Date(item['Data Fechamento'] || item['Data Mudanca Etapa']).toISOString() 
               : null,
           }
         })
 
-        // Salva na tabela deals
         const { error } = await supabase.from('deals').insert(rows)
 
         if (!error) {
-          // Registra a data/hora do upload
           await supabase.from('sheet_logs').insert({
             file_name: file.name,
             total_records: rows.length,
             updated_by: 'Admin',
           })
-          setStatusMsg(`Sucesso! ${rows.length} registros atualizados no banco de dados.`)
+          setStatusMsg(`Sucesso! ${rows.length} registros atualizados no banco.`)
         } else {
           setStatusMsg('Erro ao salvar no banco: ' + error.message)
         }
@@ -140,7 +132,6 @@ export default function AdminDashboard() {
     if (!confirm('Deseja realmente apagar todos os dados da planilha no banco?')) return
     setLoading(true)
     const { error } = await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-    
     if (!error) {
       setStatusMsg('Base de dados limpa com sucesso.')
     } else {
@@ -172,30 +163,71 @@ export default function AdminDashboard() {
         status: 'ativo'
       })
 
-      setUserMsg(`Usuário (${newEmail}) criado com sucesso como ${newRole.toUpperCase()}!`)
+      setUserMsg(`Usuário (${newEmail}) cadastrado com sucesso!`)
       setNewEmail('')
       setNewPassword('')
+      await fetchProfiles()
+    }
+  }
+
+  // Alternar Status (Ativar / Inativar)
+  async function handleToggleStatus(userId: string, currentStatus: string) {
+    const nextStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo'
+    const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', userId)
+    if (!error) {
+      await fetchProfiles()
+    } else {
+      alert('Erro ao alterar status: ' + error.message)
+    }
+  }
+
+  // Salvar Edição de Perfil (Role)
+  async function handleSaveRole(userId: string) {
+    const { error } = await supabase.from('profiles').update({ role: editRole }).eq('id', userId)
+    if (!error) {
+      setEditingUserId(null)
+      await fetchProfiles()
+    } else {
+      alert('Erro ao atualizar permissão: ' + error.message)
+    }
+  }
+
+  // Excluir Usuário do Banco
+  async function handleDeleteUser(userId: string, email: string) {
+    if (!confirm(`Tem certeza de que deseja remover o usuário ${email}?`)) return
+    const { error } = await supabase.from('profiles').delete().eq('id', userId)
+    if (!error) {
+      await fetchProfiles()
+    } else {
+      alert('Erro ao excluir usuário: ' + error.message)
     }
   }
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-600">Verificando permissões de Administrador...</div>
+    return <div className="p-8 text-center text-slate-600 font-sans">Carregando Painel Administrativo...</div>
   }
 
   return (
-    <div className="p-8 bg-slate-100 min-h-screen font-sans">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Painel Administrativo - Gestão RMR</h1>
-        <a href="/bi/" className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold px-3 py-1.5 rounded-lg transition">
-          Voltar ao Dashboard
+    <div className="p-8 bg-slate-50 min-h-screen font-sans">
+      {/* Topo / Header */}
+      <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Painel Administrativo - B.I. RMR</h1>
+          <p className="text-xs text-slate-500 font-medium">Gestão de Base de Dados e Controle de Usuários</p>
+        </div>
+        
+        <a href="/bi/" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
+          ← Voltar ao Dashboard
         </a>
       </div>
 
-      {/* Gestão de Dados */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">Gestão da Base de Dados (Planilha)</h2>
+      {/* Bloco 1: Gestão da Base de Dados */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha)</h2>
+        <p className="text-xs text-slate-500 mb-4">Envie um novo arquivo para atualizar totalmente os números do B.I.</p>
+        
         <div className="flex flex-wrap items-center gap-4">
-          <label className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg cursor-pointer transition text-sm">
+          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm">
             Adicionar Planilha Nova (XLS, XLSX, CSV)
             <input type="file" accept=".xls,.xlsx,.csv" onChange={handleFileUpload} className="hidden" disabled={loading} />
           </label>
@@ -203,62 +235,143 @@ export default function AdminDashboard() {
           <button 
             onClick={handleClearDatabase}
             disabled={loading}
-            className="bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2.5 rounded-lg transition text-sm"
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-5 py-2.5 rounded-xl transition text-sm border border-rose-200"
           >
             Apagar Planilha do Banco
           </button>
         </div>
-        {statusMsg && <p className="mt-4 text-sm font-semibold text-slate-700">{statusMsg}</p>}
+        {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
       </div>
 
-      {/* Gestão de Usuários */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h2 className="text-lg font-bold text-slate-800 mb-2">Criar e Controlar Usuários</h2>
-        <p className="text-xs text-slate-500 mb-4">Defina se o novo acesso será um Usuário Comum ou Administrador.</p>
-        
+      {/* Bloco 2: Cadastro de Novo Usuário */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <h2 className="text-base font-bold text-slate-800 mb-1">Cadastrar Novo Usuário</h2>
+        <p className="text-xs text-slate-500 mb-4">Crie novos acessos para a equipe e defina suas permissões.</p>
+
         <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1">E-mail</label>
             <input 
               type="email" 
               required
-              placeholder="email@empresa.com" 
+              placeholder="usuario@empresa.com" 
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full p-2 border rounded-lg text-sm" 
+              className="w-full p-2.5 border border-slate-300 rounded-xl text-sm" 
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Senha</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Senha</label>
             <input 
               type="password" 
               required
               placeholder="••••••••" 
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full p-2 border rounded-lg text-sm" 
+              className="w-full p-2.5 border border-slate-300 rounded-xl text-sm" 
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Perfil de Acesso</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Perfil de Acesso</label>
             <select 
               value={newRole}
               onChange={(e) => setNewRole(e.target.value)}
-              className="w-full p-2 border rounded-lg text-sm bg-white"
+              className="w-full p-2.5 border border-slate-300 rounded-xl text-sm bg-white font-medium text-slate-700"
             >
-              <option value="user">Usuário (Apenas Visualização)</option>
+              <option value="user">Usuário (Visualização)</option>
               <option value="admin">Administrador (Acesso Total)</option>
             </select>
           </div>
 
-          <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-medium p-2 rounded-lg text-sm transition">
+          <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-2.5 rounded-xl text-sm transition shadow-sm">
             Cadastrar Usuário
           </button>
         </form>
 
-        {userMsg && <p className="mt-4 text-sm font-semibold text-slate-700">{userMsg}</p>}
+        {userMsg && <p className="mt-4 text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-200">{userMsg}</p>}
+      </div>
+
+      {/* Bloco 3: Tabela de Gestão de Usuários (Ver, Editar, Excluir, Ativar/Inativar) */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h2 className="text-base font-bold text-slate-800 mb-4">Usuários Cadastrados ({profiles.length})</h2>
+
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold text-xs uppercase tracking-wider">
+              <th className="p-3">E-mail</th>
+              <th className="p-3">Perfil</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Data de Cadastro</th>
+              <th className="p-3 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {profiles.map((p) => (
+              <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                <td className="p-3 font-semibold text-slate-800">{p.email}</td>
+                <td className="p-3">
+                  {editingUserId === p.id ? (
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={editRole} 
+                        onChange={(e) => setEditRole(e.target.value)}
+                        className="p-1 border rounded text-xs bg-white font-medium"
+                      >
+                        <option value="user">Usuário</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                      <button onClick={() => handleSaveRole(p.id)} className="text-xs bg-blue-600 text-white px-2 py-1 rounded font-bold">Salvar</button>
+                      <button onClick={() => setEditingUserId(null)} className="text-xs text-slate-500 underline">Cancelar</button>
+                    </div>
+                  ) : (
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${p.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-700'}`}>
+                      {p.role === 'admin' ? 'Administrador' : 'Usuário'}
+                    </span>
+                  )}
+                </td>
+                <td className="p-3">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${p.status === 'ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                    {p.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                  </span>
+                </td>
+                <td className="p-3 text-slate-500 text-xs">
+                  {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}
+                </td>
+                <td className="p-3 text-right">
+                  <div className="flex justify-end gap-2 items-center">
+                    {/* Botão Editar Permissão */}
+                    <button 
+                      onClick={() => { setEditingUserId(p.id); setEditRole(p.role) }}
+                      className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2.5 py-1 rounded-lg transition"
+                    >
+                      Editar Permissão
+                    </button>
+
+                    {/* Botão Ativar / Inativar */}
+                    <button 
+                      onClick={() => handleToggleStatus(p.id, p.status)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition ${
+                        p.status === 'ativo' ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      }`}
+                    >
+                      {p.status === 'ativo' ? 'Inativar' : 'Ativar'}
+                    </button>
+
+                    {/* Botão Excluir */}
+                    <button 
+                      onClick={() => handleDeleteUser(p.id, p.email)}
+                      className="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-2.5 py-1 rounded-lg transition border border-rose-200"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
