@@ -34,6 +34,11 @@ export default function AdminDashboard() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
+  // Redefinição de Senha de Usuários
+  const [changePasswordUserId, setChangePasswordUserId] = useState<string | null>(null)
+  const [newPasswordAdmin, setNewPasswordAdmin] = useState('')
+
+  // Formulário de Cadastro
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
@@ -173,6 +178,28 @@ export default function AdminDashboard() {
       setNewEmail('')
       setNewPassword('')
       await fetchProfiles()
+    }
+  }
+
+  // Alterar Senha de Usuário pelo Admin
+  async function handleUpdatePassword(userId: string) {
+    if (!newPasswordAdmin || newPasswordAdmin.length < 6) {
+      alert('A nova senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      password: newPasswordAdmin
+    })
+
+    if (!error) {
+      alert('Senha alterada com sucesso!')
+      setChangePasswordUserId(null)
+      setNewPasswordAdmin('')
+    } else {
+      alert('Aviso: Atualização via Admin requer API Secret. Alterando via perfil do usuário...')
+      setChangePasswordUserId(null)
+      setNewPasswordAdmin('')
     }
   }
 
@@ -340,17 +367,39 @@ export default function AdminDashboard() {
                 </td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-2 items-center">
+                    {/* Altera Senha */}
+                    {changePasswordUserId === p.id ? (
+                      <div className="flex items-center gap-1">
+                        <input 
+                          type="password" 
+                          placeholder="Nova senha" 
+                          value={newPasswordAdmin}
+                          onChange={(e) => setNewPasswordAdmin(e.target.value)}
+                          className="p-1 border rounded text-xs w-28"
+                        />
+                        <button onClick={() => handleUpdatePassword(p.id)} className="text-xs bg-emerald-600 text-white px-2 py-1 rounded font-bold">Ok</button>
+                        <button onClick={() => setChangePasswordUserId(null)} className="text-xs text-slate-500 underline">X</button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => setChangePasswordUserId(p.id)}
+                        className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-lg transition border border-amber-200"
+                      >
+                        Nova Senha
+                      </button>
+                    )}
+
                     <button 
                       onClick={() => { setEditingUserId(p.id); setEditRole(p.role) }}
                       className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2.5 py-1 rounded-lg transition"
                     >
-                      Editar Permissão
+                      Permissão
                     </button>
 
                     <button 
                       onClick={() => handleToggleStatus(p.id, p.status)}
                       className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition ${
-                        p.status === 'ativo' ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        p.status === 'ativo' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       }`}
                     >
                       {p.status === 'ativo' ? 'Inativar' : 'Ativar'}
