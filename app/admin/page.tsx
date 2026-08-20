@@ -8,6 +8,9 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Chave da API oficial do PUCA CRM configurada
+const PUCA_API_KEY_DEFAULT = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
+
 function parseBRDate(dateStr: any) {
   if (!dateStr) return null
   const s = dateStr.toString().trim()
@@ -99,17 +102,14 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização da API do PUCA CRM com Tratamento Anti-CORS
+  // Sincronização Automática com 1 Clique
   async function handleSyncPucaAutomatic() {
-    const solicitada = prompt('Digite sua PUCA_API_KEY para autenticar no CRM e sincronizar:')
-    if (!solicitada) return
-    const apiKeyParaUsar = solicitada.trim()
+    const apiKeyParaUsar = PUCA_API_KEY_DEFAULT.trim()
 
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM (via Proxy Seguro)...')
+    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
 
     try {
-      // Uso de Proxy CORS para permitir fetch do GitHub Pages para o PUCA
       const corsProxy = 'https://corsproxy.io/?'
       const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-user/system_user/login')
 
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
       })
 
       if (!loginRes.ok) {
-        throw new Error('Falha na autenticação do PUCA. Verifique se a API Key do robô está correta.')
+        throw new Error('Falha na autenticação do PUCA CRM. Verifique a API Key.')
       }
 
       const loginData = await loginRes.json()
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
         throw new Error('Token de sessão não foi retornado pelo PUCA.')
       }
 
-      setStatusMsg('2/3 - Consultando dados da view user_funil_venda...')
+      setStatusMsg('2/3 - Consultando oportunidades na view user_funil_venda...')
 
       // 2. Consulta de Dados na View
       const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
