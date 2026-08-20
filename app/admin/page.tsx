@@ -34,11 +34,9 @@ export default function AdminDashboard() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
-  // Redefinição de Senha de Usuários
   const [changePasswordUserId, setChangePasswordUserId] = useState<string | null>(null)
   const [newPasswordAdmin, setNewPasswordAdmin] = useState('')
 
-  // Formulário de Cadastro
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
@@ -181,25 +179,24 @@ export default function AdminDashboard() {
     }
   }
 
-  // Alterar Senha de Usuário pelo Admin
-  async function handleUpdatePassword(userId: string) {
+  // Redefinição de Senha do Usuário
+  async function handleUpdatePassword(userEmail: string) {
     if (!newPasswordAdmin || newPasswordAdmin.length < 6) {
       alert('A nova senha precisa ter pelo menos 6 caracteres.')
       return
     }
 
-    const { error } = await supabase.auth.admin.updateUserById(userId, {
-      password: newPasswordAdmin
+    // Envia link de redefinição/atualização de senha direto para o e-mail do usuário
+    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+      redirectTo: 'https://rafaelroberto.github.io/bi/login',
     })
 
     if (!error) {
-      alert('Senha alterada com sucesso!')
+      alert(`Instrução para redefinir senha enviada para ${userEmail}.`)
       setChangePasswordUserId(null)
       setNewPasswordAdmin('')
     } else {
-      alert('Aviso: Atualização via Admin requer API Secret. Alterando via perfil do usuário...')
-      setChangePasswordUserId(null)
-      setNewPasswordAdmin('')
+      alert('Erro ao solicitar troca de senha: ' + error.message)
     }
   }
 
@@ -367,27 +364,12 @@ export default function AdminDashboard() {
                 </td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-2 items-center">
-                    {/* Altera Senha */}
-                    {changePasswordUserId === p.id ? (
-                      <div className="flex items-center gap-1">
-                        <input 
-                          type="password" 
-                          placeholder="Nova senha" 
-                          value={newPasswordAdmin}
-                          onChange={(e) => setNewPasswordAdmin(e.target.value)}
-                          className="p-1 border rounded text-xs w-28"
-                        />
-                        <button onClick={() => handleUpdatePassword(p.id)} className="text-xs bg-emerald-600 text-white px-2 py-1 rounded font-bold">Ok</button>
-                        <button onClick={() => setChangePasswordUserId(null)} className="text-xs text-slate-500 underline">X</button>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setChangePasswordUserId(p.id)}
-                        className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-lg transition border border-amber-200"
-                      >
-                        Nova Senha
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => handleUpdatePassword(p.email)}
+                      className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-lg transition border border-amber-200"
+                    >
+                      Resetar Senha
+                    </button>
 
                     <button 
                       onClick={() => { setEditingUserId(p.id); setEditRole(p.role) }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer 
@@ -30,22 +30,24 @@ export default function UserDashboard() {
 
   const [itensVisiveis, setItensVisiveis] = useState(10)
 
-  // Estado de Ordenação da Tabela (Padrão: Data de Criação - Mais Recente Primeiro)
   const [ordenacao, setOrdenacao] = useState<{ campo: string; direcao: 'asc' | 'desc' }>({
     campo: 'data_criacao',
     direcao: 'desc'
   })
 
-  // Filtro por Clicar no KPI
   const [filtroKPI, setFiltroKPI] = useState<string>('todos')
 
-  // Filtros Tradicionais
   const [filtroData, setFiltroData] = useState('todos')
   const [dataInicioCustom, setDataInicioCustom] = useState('')
   const [dataFimCustom, setDataFimCustom] = useState('')
   const [filtroVendedor, setFiltroVendedor] = useState('')
-  const [filtroOrigem, setFiltroOrigem] = useState('')
   const [filtroEtapa, setFiltroEtapa] = useState('')
+
+  // Multisseleção de Origem com Campo de Pesquisa Texto
+  const [origensSelecionadas, setOrigensSelecionadas] = useState<string[]>([])
+  const [buscaOrigemInput, setBuscaOrigemInput] = useState('')
+  const [dropdownOrigemAberto, setDropdownOrigemAberto] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function init() {
@@ -59,6 +61,16 @@ export default function UserDashboard() {
       setLoading(false)
     }
     init()
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOrigemAberto(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   async function fetchDeals() {
@@ -78,7 +90,6 @@ export default function UserDashboard() {
     window.location.href = '/bi/login'
   }
 
-  // Alternar Ordenação
   const handleOrdenar = (campo: string) => {
     if (ordenacao.campo === campo) {
       setOrdenacao({ campo, direcao: ordenacao.direcao === 'asc' ? 'desc' : 'asc' })
@@ -87,14 +98,24 @@ export default function UserDashboard() {
     }
   }
 
-  // 1. Filtragem Base
+  const toggleOrigem = (o: string) => {
+    if (origensSelecionadas.includes(o)) {
+      setOrigensSelecionadas(origensSelecionadas.filter(item => item !== o))
+    } else {
+      setOrigensSelecionadas([...origensSelecionadas, o])
+    }
+  }
+
+  const listaTodasOrigens = Array.from(new Set(deals.map(d => d.origem).filter(Boolean)))
+  const listaOrigensFiltradasBusca = listaTodasOrigens.filter(o => o.toLowerCase().includes(buscaOrigemInput.toLowerCase()))
+
   const dealsBaseData = deals.filter(d => {
     const vend = (d.vendedor || '').toString().toLowerCase()
     const orig = (d.origem || '').toString().toLowerCase()
     const etap = (d.etapa || '').toString().toLowerCase()
 
     const matchVendedor = filtroVendedor === '' || vend === filtroVendedor.toLowerCase()
-    const matchOrigem = filtroOrigem === '' || orig.includes(filtroOrigem.toLowerCase())
+    const matchOrigem = origensSelecionadas.length === 0 || origensSelecionadas.some(os => os.toLowerCase() === orig)
     const matchEtapa = filtroEtapa === '' || etap === filtroEtapa.toLowerCase()
 
     const dataRefStr = (d.status === 'Ganho' && d.data_mudanca_etapa) ? d.data_mudanca_etapa : d.data_criacao
@@ -129,7 +150,6 @@ export default function UserDashboard() {
     return matchVendedor && matchOrigem && matchEtapa && matchData
   })
 
-  // KPIs Globais
   const totalCriadas = dealsBaseData.length
   const ganhos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'ganho').length
   const perdidos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'perdido').length
@@ -142,7 +162,6 @@ export default function UserDashboard() {
   const totalDiasCiclo = ganhosList.reduce((acc, d) => acc + calcularCicloVenda(d.data_criacao, d.status, d.data_mudanca_etapa), 0)
   const mediaCicloVendas = ganhosList.length > 0 ? Math.round(totalDiasCiclo / ganhosList.length) : 0
 
-  // 2. Aplicar Filtro do KPI
   const dealsFiltrados = dealsBaseData.filter(d => {
     const st = (d.status || '').toLowerCase()
     if (filtroKPI === 'ganho') return st === 'ganho'
@@ -152,7 +171,6 @@ export default function UserDashboard() {
     return true
   })
 
-  // 3. Aplicação da Ordenação
   const dealsOrdenados = [...dealsFiltrados].sort((a, b) => {
     let valA: any = 0
     let valB: any = 0
@@ -188,7 +206,6 @@ export default function UserDashboard() {
     }
   }
 
-  // Estágios do Funil
   const etapasFunilOrdem = [
     { label: 'Qualificação', key: 'qualificação', color: 'bg-slate-800' },
     { label: 'Prospecção', key: 'prospecção', color: 'bg-slate-700' },
@@ -218,7 +235,6 @@ export default function UserDashboard() {
     }
   })
 
-  // Dados para Gráficos
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
@@ -256,7 +272,6 @@ export default function UserDashboard() {
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen font-sans">
-      {/* Topo */}
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Dashboard RMR - Reunião Mensal de Resultados</h1>
@@ -281,7 +296,6 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Barra de Filtros */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">Período de Data</label>
@@ -338,15 +352,56 @@ export default function UserDashboard() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-600 mb-1">Origem (Pesquisar)</label>
-          <input 
-            type="text" 
-            placeholder="Buscar origem..." 
-            value={filtroOrigem} 
-            onChange={(e) => setFiltroOrigem(e.target.value)} 
-            className="p-2 border border-slate-300 rounded-lg text-sm text-slate-700 min-w-[160px]"
-          />
+        {/* Dropdown de Multisseleção de Origem com Busca */}
+        <div className="relative" ref={dropdownRef}>
+          <label className="block text-xs font-bold text-slate-600 mb-1">Origem (Multisseleção)</label>
+          <button 
+            type="button"
+            onClick={() => setDropdownOrigemAberto(!dropdownOrigemAberto)}
+            className="p-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-700 min-w-[200px] text-left flex justify-between items-center"
+          >
+            <span className="truncate max-w-[170px]">
+              {origensSelecionadas.length === 0 
+                ? 'Todas as Origens' 
+                : `${origensSelecionadas.length} selecionada(s)`}
+            </span>
+            <span className="text-xs text-slate-400">▼</span>
+          </button>
+
+          {dropdownOrigemAberto && (
+            <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-2">
+              <input 
+                type="text" 
+                placeholder="Buscar origem..." 
+                value={buscaOrigemInput}
+                onChange={(e) => setBuscaOrigemInput(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg text-xs mb-2"
+              />
+
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {listaOrigensFiltradasBusca.map(o => (
+                  <label key={o} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer text-xs">
+                    <input 
+                      type="checkbox" 
+                      checked={origensSelecionadas.includes(o)}
+                      onChange={() => toggleOrigem(o)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-700 truncate">{o}</span>
+                  </label>
+                ))}
+              </div>
+
+              {origensSelecionadas.length > 0 && (
+                <button 
+                  onClick={() => setOrigensSelecionadas([])}
+                  className="w-full text-center text-xs text-rose-600 font-bold mt-2 pt-2 border-t border-slate-100 hover:underline"
+                >
+                  Limpar Seleção
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
@@ -363,11 +418,11 @@ export default function UserDashboard() {
           </select>
         </div>
 
-        {(filtroVendedor || filtroOrigem || filtroEtapa || filtroData !== 'todos' || filtroKPI !== 'todos') && (
+        {(filtroVendedor || origensSelecionadas.length > 0 || filtroEtapa || filtroData !== 'todos' || filtroKPI !== 'todos') && (
           <button 
             onClick={() => { 
-              setFiltroVendedor(''); setFiltroOrigem(''); setFiltroEtapa(''); setFiltroData('todos');
-              setFiltroKPI('todos'); setDataInicioCustom(''); setDataFimCustom('');
+              setFiltroVendedor(''); setOrigensSelecionadas([]); setFiltroEtapa(''); setFiltroData('todos');
+              setFiltroKPI('todos'); setDataInicioCustom(''); setDataFimCustom(''); setBuscaOrigemInput('');
             }}
             className="text-xs text-rose-600 hover:text-rose-800 font-bold p-2 transition"
           >
@@ -376,7 +431,6 @@ export default function UserDashboard() {
         )}
       </div>
 
-      {/* Grid de KPIs Clicáveis */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
         <div 
           onClick={() => toggleKPIFilter('todos')}
@@ -439,7 +493,6 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Funil Compacto + Ranking de Vendedores */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
           <div>
@@ -480,7 +533,6 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Gráficos Secundários */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda</h3>
@@ -516,7 +568,6 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabela de Detalhamento das Contas com Ordenação Clicável */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-base">
@@ -583,7 +634,6 @@ export default function UserDashboard() {
           </tbody>
         </table>
 
-        {/* Controles de Expansão */}
         <div className="mt-6 flex justify-center gap-3">
           {itensVisiveis < dealsOrdenados.length && (
             <>
