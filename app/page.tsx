@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
+  PieChart, Pie, Cell 
 } from 'recharts'
 
 const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
@@ -72,7 +72,7 @@ export default function UserDashboard() {
     window.location.href = '/bi/login'
   }
 
-  // Filtragem
+  // Filtragem Lógica Tolerante
   const dealsFiltrados = deals.filter(d => {
     const vend = (d.vendedor || '').toString().toLowerCase()
     const orig = (d.origem || '').toString().toLowerCase()
@@ -82,7 +82,6 @@ export default function UserDashboard() {
     const matchOrigem = filtroOrigem === '' || orig.includes(filtroOrigem.toLowerCase())
     const matchEtapa = filtroEtapa === '' || etap === filtroEtapa.toLowerCase()
 
-    // Para negócios encerrados (Ganho/Perdido), usa a data de fechamento para análise RMR
     const dataRefStr = (d.status === 'Ganho' && d.data_mudanca_etapa) ? d.data_mudanca_etapa : d.data_criacao
     if (!dataRefStr) return matchVendedor && matchOrigem && matchEtapa
     
@@ -124,6 +123,11 @@ export default function UserDashboard() {
   const totalEncerradas = ganhos + perdidos
   const taxaConversao = totalEncerradas > 0 ? ((ganhos / totalEncerradas) * 100).toFixed(1) : (totalCriadas > 0 ? ((ganhos / totalCriadas) * 100).toFixed(1) : '0.0')
 
+  // Média do Ciclo de Vendas (Ganhos)
+  const ganhosList = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'ganho')
+  const totalDiasCiclo = ganhosList.reduce((acc, d) => acc + calcularCicloVenda(d.data_criacao, d.status, d.data_mudanca_etapa), 0)
+  const mediaCicloVendas = ganhosList.length > 0 ? Math.round(totalDiasCiclo / ganhosList.length) : 0
+
   // Ranking Vendedores
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
@@ -136,7 +140,7 @@ export default function UserDashboard() {
     ganhos: rankingVendedoresMap[k]
   })).sort((a, b) => b.ganhos - a.ganhos).slice(0, 10)
 
-  // Motivos de Perda (Exibe inclusive os preenchidos que eram minoria)
+  // Motivos de Perda
   const motivosPerdaMap: Record<string, number> = {}
   dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').forEach(d => {
     const m = (d.motivo_perda && d.motivo_perda.toString().trim() !== '') ? d.motivo_perda.toString().trim() : 'Sem Justificativa (CRM)'
@@ -285,33 +289,36 @@ export default function UserDashboard() {
         )}
       </div>
 
-      {/* Cards de KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-8">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+      {/* Grid de 6 Cards de KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Criadas</p>
-          <p className="text-3xl font-extrabold text-slate-900 mt-1">{totalCriadas}</p>
+          <p className="text-2xl font-extrabold text-slate-900 mt-1">{totalCriadas}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-200 bg-emerald-50/20">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-200 bg-emerald-50/20">
           <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Ganhos</p>
-          <p className="text-3xl font-extrabold text-emerald-600 mt-1">{ganhos}</p>
+          <p className="text-2xl font-extrabold text-emerald-600 mt-1">{ganhos}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-rose-200 bg-rose-50/20">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-rose-200 bg-rose-50/20">
           <p className="text-xs text-rose-600 font-bold uppercase tracking-wider">Perdidos</p>
-          <p className="text-3xl font-extrabold text-rose-600 mt-1">{perdidos}</p>
+          <p className="text-2xl font-extrabold text-rose-600 mt-1">{perdidos}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-200 bg-amber-50/20">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-amber-200 bg-amber-50/20">
           <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Abertas</p>
-          <p className="text-3xl font-extrabold text-amber-600 mt-1">{abertas}</p>
+          <p className="text-2xl font-extrabold text-amber-600 mt-1">{abertas}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-200 bg-blue-50/20">
-          <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">Taxa de Conversão</p>
-          <p className="text-3xl font-extrabold text-blue-600 mt-1">{taxaConversao}%</p>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-200 bg-blue-50/20">
+          <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">Taxa Conversão</p>
+          <p className="text-2xl font-extrabold text-blue-600 mt-1">{taxaConversao}%</p>
+        </div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-purple-200 bg-purple-50/20">
+          <p className="text-xs text-purple-600 font-bold uppercase tracking-wider">Ciclo Médio</p>
+          <p className="text-2xl font-extrabold text-purple-700 mt-1">{mediaCicloVendas} <span className="text-xs font-semibold">dias</span></p>
         </div>
       </div>
 
       {/* Seção de Gráficos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Ranking Vendedores */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores (Ganhos)</h3>
           <div className="h-64">
@@ -326,7 +333,6 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Motivos de Perda em Barras Horizontais para ver TODAS as categorias */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda (Todos)</h3>
           <p className="text-[10px] text-slate-400 mb-3">*351 de 376 perdas estão sem motivo no CRM</p>
@@ -346,7 +352,6 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Ranking Origem */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem do Lead</h3>
           <div className="h-64">
