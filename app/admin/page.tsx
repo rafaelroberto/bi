@@ -48,6 +48,10 @@ export default function AdminDashboard() {
   const [buscaClienteForecast, setBuscaClienteForecast] = useState('')
   const [savingForecastId, setSavingForecastId] = useState<string | null>(null)
 
+  // Estado de Ordenação das Colunas da Tabela
+  const [sortField, setSortField] = useState<string>('cliente_razao_social')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+
   // Formulário de Cadastro de Usuário
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -101,7 +105,16 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Direta com a Tabela puca_flow_api_flow
+  function handleSort(field: string) {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  // Sincronização com puca_flow_api_flow
   async function handleSyncPucaApi() {
     setLoading(true)
     setStatusMsg('1/3 - Autenticando e conectando à tabela puca_flow_api_flow...')
@@ -110,7 +123,6 @@ export default function AdminDashboard() {
       const corsProxy = 'https://corsproxy.io/?'
       const token = PUCA_API_KEY_SECRET
 
-      // Endpoints oficiais para a tabela puca_flow_api_flow
       const endpointsParaTestar = [
         {
           url: 'https://lifeapps.puca.app/puca-flow-api/flow/find',
@@ -152,12 +164,12 @@ export default function AdminDashboard() {
             }
           }
         } catch (e) {
-          // Continua para o próximo endpoint
+          // Tenta o próximo endpoint
         }
       }
 
       if (!rows) {
-        throw new Error('Permissão pendente no PUCA CRM. Acesse Sys -> Integrações -> Robôs no PUCA e ative a permissão "Find/Consultar" para a tabela "puca_flow_api_flow" (View Flow 66 - Funil de Vendas).')
+        throw new Error('Permissão pendente no PUCA CRM. Acesse Sys -> Integrações -> Robôs no PUCA e ative a permissão "Find/Consultar" para a tabela "puca_flow_api_flow".')
       }
 
       setStatusMsg(`2/3 - Dados recebidos da tabela puca_flow_api_flow! Processando ${rows.length} registros...`)
@@ -392,13 +404,46 @@ export default function AdminDashboard() {
   const listaIncluidosForecast = Object.values(forecastsMap).filter(f => f.incluido_forecast === true)
   const etapasPermitidasForecast = ['demonstração', 'proposta', 'negociação', 'assinatura']
 
-  const dealsPermitidosForecast = dealsList.filter(d => {
-    const etapaLc = (d.etapa || '').toString().toLowerCase()
-    const estaNaEtapaValida = etapasPermitidasForecast.some(e => etapaLc.includes(e))
-    const matchBusca = (d.cliente_razao_social || '').toLowerCase().includes(buscaClienteForecast.toLowerCase()) ||
-                       (d.vendedor || '').toLowerCase().includes(buscaClienteForecast.toLowerCase())
-    return estaNaEtapaValida && matchBusca
-  })
+  // Filtragem e Ordenação Dinâmica dos Dados
+  const dealsPermitidosForecast = dealsList
+    .filter(d => {
+      const etapaLc = (d.etapa || '').toString().toLowerCase()
+      const estaNaEtapaValida = etapasPermitidasForecast.some(e => etapaLc.includes(e))
+      const matchBusca = (d.cliente_razao_social || '').toLowerCase().includes(buscaClienteForecast.toLowerCase()) ||
+                         (d.vendedor || '').toLowerCase().includes(buscaClienteForecast.toLowerCase())
+      return estaNaEtapaValida && matchBusca
+    })
+    .sort((a, b) => {
+      const forecastA = forecastsMap[a.cliente_razao_social] || {}
+      const forecastB = forecastsMap[b.cliente_razao_social] || {}
+
+      let valA: any = ''
+      let valB: any = ''
+
+      if (sortField === 'cliente_razao_social') {
+        valA = (a.cliente_razao_social || '').toLowerCase()
+        valB = (b.cliente_razao_social || '').toLowerCase()
+      } else if (sortField === 'etapa') {
+        valA = (a.etapa || '').toLowerCase()
+        valB = (b.etapa || '').toLowerCase()
+      } else if (sortField === 'vendedor') {
+        valA = (a.vendedor || '').toLowerCase()
+        valB = (b.vendedor || '').toLowerCase()
+      } else if (sortField === 'valor_setup') {
+        valA = forecastA.valor_setup || 0
+        valB = forecastB.valor_setup || 0
+      } else if (sortField === 'valor_mrr') {
+        valA = forecastA.valor_mrr || 0
+        valB = forecastB.valor_mrr || 0
+      } else if (sortField === 'data_previsao') {
+        valA = forecastA.data_previsao || ''
+        valB = forecastB.data_previsao || ''
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
 
   if (loading) {
     return <div className="p-8 text-center text-slate-600 font-sans">Carregando Painel Administrativo...</div>
@@ -621,14 +666,33 @@ export default function AdminDashboard() {
                 <div className="overflow-x-auto max-h-96 overflow-y-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase sticky top-0 bg-slate-50">
+                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase sticky top-0 bg-slate-50 select-none">
                         <th className="p-2.5 text-center">Incluir</th>
-                        <th className="p-2.5">Cliente (Razão Social)</th>
-                        <th className="p-2.5">Etapa Atual</th>
-                        <th className="p-2.5">Vendedor</th>
-                        <th className="p-2.5">Setup (R$)</th>
-                        <th className="p-2.5">MRR (R$)</th>
-                        <th className="p-2.5">Previsão Fechamento</th>
+
+                        {/* Cabeçalhos Clicáveis para Ordenação */}
+                        <th onClick={() => handleSort('cliente_razao_social')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
+                          Cliente (Razão Social) {sortField === 'cliente_razao_social' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </th>
+
+                        <th onClick={() => handleSort('etapa')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
+                          Etapa Atual {sortField === 'etapa' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </th>
+
+                        <th onClick={() => handleSort('vendedor')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
+                          Vendedor {sortField === 'vendedor' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </th>
+
+                        <th onClick={() => handleSort('valor_setup')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
+                          Setup (R$) {sortField === 'valor_setup' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </th>
+
+                        <th onClick={() => handleSort('valor_mrr')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
+                          MRR (R$) {sortField === 'valor_mrr' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </th>
+
+                        <th onClick={() => handleSort('data_previsao')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
+                          Previsão Fechamento {sortField === 'data_previsao' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
