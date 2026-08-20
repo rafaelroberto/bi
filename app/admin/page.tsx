@@ -35,7 +35,7 @@ export default function AdminDashboard() {
   const [editRole, setEditRole] = useState('user')
 
   // Módulo Retrátil & Estado do Forecast
-  const [forecastExpandido, setDropdownForecastExpandido] = useState(true)
+  const [forecastExpandido, setForecastExpandido] = useState(true)
   const [abaForecast, setAbaForecast] = useState<'incluidos' | 'buscar'>('incluidos')
   
   const [dealsList, setDealsList] = useState<any[]>([])
@@ -96,8 +96,8 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Atualizar ou Persistir Seleção de Forecast
-  async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
+  // Persistir item do Forecast
+  async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, etapa: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
     setSavingForecastId(cliente)
 
     const payload = {
@@ -273,11 +273,17 @@ export default function AdminDashboard() {
   // Lista de Contas Atualmente Incluídas no Forecast
   const listaIncluidosForecast = Object.values(forecastsMap).filter(f => f.incluido_forecast === true)
 
-  // Filtragem para Busca de Oportunidades
-  const dealsFiltradosForecast = dealsList.filter(d => 
-    (d.cliente_razao_social || '').toLowerCase().includes(buscaClienteForecast.toLowerCase()) ||
-    (d.vendedor || '').toLowerCase().includes(buscaClienteForecast.toLowerCase())
-  )
+  // Etapas Permitidas para Seleção no Forecast
+  const etapasPermitidasForecast = ['demonstração', 'proposta', 'negociação', 'assinatura']
+
+  // Filtragem Apenas por Oportunidades nas Etapas Permitidas
+  const dealsPermitidosForecast = dealsList.filter(d => {
+    const etapaLc = (d.etapa || '').toString().toLowerCase()
+    const estaNaEtapaValida = etapasPermitidasForecast.some(e => etapaLc.includes(e))
+    const matchBusca = (d.cliente_razao_social || '').toLowerCase().includes(buscaClienteForecast.toLowerCase()) ||
+                       (d.vendedor || '').toLowerCase().includes(buscaClienteForecast.toLowerCase())
+    return estaNaEtapaValida && matchBusca
+  })
 
   if (loading) {
     return <div className="p-8 text-center text-slate-600 font-sans">Carregando Painel Administrativo...</div>
@@ -296,25 +302,25 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* RECURSO RETRÁTIL: Módulo do Forecast Comercial */}
+      {/* Módulo Retrátil Completo do Forecast Comercial */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-hidden transition">
-        {/* Cabeçalho Clicável do Módulo Retrátil */}
+        {/* Cabeçalho Clicável da Sanfona */}
         <div 
-          onClick={() => setDropdownForecastExpandido(!forecastExpandido)}
+          onClick={() => setForecastExpandido(!forecastExpandido)}
           className="p-5 bg-slate-900 text-white flex justify-between items-center cursor-pointer select-none hover:bg-slate-800 transition"
         >
           <div>
             <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
-              <span>📊 Gestão do Forecast Comercial do Mês</span>
+              <span>📊 Montar Forecast Comercial do Mês</span>
               <span className="bg-blue-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">
-                {listaIncluidosForecast.length} contas selecionadas
+                {listaIncluidosForecast.length} contas no Forecast
               </span>
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Clique aqui para expandir ou recolher este painel de montagem do Forecast</p>
+            <p className="text-xs text-slate-400 mt-0.5">Apenas contas em Demonstração, Proposta, Negociação e Assinatura</p>
           </div>
 
-          <div className="text-lg font-bold">
-            {forecastExpandido ? '▲ Recolher' : '▼ Expandir'}
+          <div className="text-xs font-bold bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-xl border border-slate-700">
+            {forecastExpandido ? '▲ Recolher Painel' : '▼ Expandir Painel'}
           </div>
         </div>
 
@@ -342,7 +348,7 @@ export default function AdminDashboard() {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                2. Buscar e Adicionar Oportunidades da Base
+                2. Buscar Oportunidades Válidas ({dealsPermitidosForecast.length})
               </button>
             </div>
 
@@ -374,6 +380,7 @@ export default function AdminDashboard() {
                                   f.cliente_razao_social, 
                                   f.vendedor, 
                                   f.deal_id, 
+                                  f.etapa || '',
                                   f.valor_setup || 0, 
                                   f.valor_mrr || 0, 
                                   f.data_previsao || '', 
@@ -393,6 +400,7 @@ export default function AdminDashboard() {
                                   f.cliente_razao_social, 
                                   f.vendedor, 
                                   f.deal_id, 
+                                  f.etapa || '',
                                   parseFloat(e.target.value) || 0, 
                                   f.valor_mrr || 0, 
                                   f.data_previsao || '', 
@@ -410,6 +418,7 @@ export default function AdminDashboard() {
                                   f.cliente_razao_social, 
                                   f.vendedor, 
                                   f.deal_id, 
+                                  f.etapa || '',
                                   f.valor_setup || 0, 
                                   parseFloat(e.target.value) || 0, 
                                   f.data_previsao || '', 
@@ -426,6 +435,7 @@ export default function AdminDashboard() {
                                   f.cliente_razao_social, 
                                   f.vendedor, 
                                   f.deal_id, 
+                                  f.etapa || '',
                                   f.valor_setup || 0, 
                                   f.valor_mrr || 0, 
                                   e.target.value, 
@@ -448,19 +458,19 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   <div className="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
-                    Nenhuma conta selecionada no Forecast ainda. Vá para a aba <strong>"2. Buscar e Adicionar Oportunidades"</strong> para incluir contas.
+                    Nenhuma conta no Forecast ainda. Vá para a aba <strong>"2. Buscar Oportunidades Válidas"</strong> para adicionar.
                   </div>
                 )}
               </div>
             )}
 
-            {/* ABA 2: Buscar e Adicionar Novas Contas da Base */}
+            {/* ABA 2: Buscar Oportunidades que estejam nas fases permitidas */}
             {abaForecast === 'buscar' && (
               <div>
-                <div className="mb-4">
+                <div className="mb-4 flex items-center gap-3">
                   <input 
                     type="text" 
-                    placeholder="Digite a razão social ou nome do vendedor para buscar..."
+                    placeholder="Filtrar oportunidade por nome de conta ou vendedor..."
                     value={buscaClienteForecast}
                     onChange={(e) => setBuscaClienteForecast(e.target.value)}
                     className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium"
@@ -471,8 +481,9 @@ export default function AdminDashboard() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase sticky top-0 bg-slate-50">
-                        <th className="p-2.5 text-center">Incluir no Forecast</th>
+                        <th className="p-2.5 text-center">Incluir</th>
                         <th className="p-2.5">Cliente (Razão Social)</th>
+                        <th className="p-2.5">Etapa Atual</th>
                         <th className="p-2.5">Vendedor</th>
                         <th className="p-2.5">Setup (R$)</th>
                         <th className="p-2.5">MRR (R$)</th>
@@ -480,7 +491,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {dealsFiltradosForecast.slice(0, 40).map((deal) => {
+                      {dealsPermitidosForecast.map((deal) => {
                         const forecastObj = forecastsMap[deal.cliente_razao_social] || {}
                         const isIncluido = forecastObj.incluido_forecast ?? false
 
@@ -494,6 +505,7 @@ export default function AdminDashboard() {
                                   deal.cliente_razao_social, 
                                   deal.vendedor, 
                                   deal.id, 
+                                  deal.etapa,
                                   forecastObj.valor_setup || 0, 
                                   forecastObj.valor_mrr || 0, 
                                   forecastObj.data_previsao || '', 
@@ -503,6 +515,11 @@ export default function AdminDashboard() {
                               />
                             </td>
                             <td className="p-2.5 font-bold text-slate-800">{deal.cliente_razao_social}</td>
+                            <td className="p-2.5">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">
+                                {deal.etapa}
+                              </span>
+                            </td>
                             <td className="p-2.5 text-slate-600">{deal.vendedor}</td>
                             <td className="p-2.5">
                               <input 
@@ -513,6 +530,7 @@ export default function AdminDashboard() {
                                   deal.cliente_razao_social, 
                                   deal.vendedor, 
                                   deal.id, 
+                                  deal.etapa,
                                   parseFloat(e.target.value) || 0, 
                                   forecastObj.valor_mrr || 0, 
                                   forecastObj.data_previsao || '', 
@@ -530,6 +548,7 @@ export default function AdminDashboard() {
                                   deal.cliente_razao_social, 
                                   deal.vendedor, 
                                   deal.id, 
+                                  deal.etapa,
                                   forecastObj.valor_setup || 0, 
                                   parseFloat(e.target.value) || 0, 
                                   forecastObj.data_previsao || '', 
@@ -546,6 +565,7 @@ export default function AdminDashboard() {
                                   deal.cliente_razao_social, 
                                   deal.vendedor, 
                                   deal.id, 
+                                  deal.etapa,
                                   forecastObj.valor_setup || 0, 
                                   forecastObj.valor_mrr || 0, 
                                   e.target.value, 
