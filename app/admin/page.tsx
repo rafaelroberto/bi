@@ -114,7 +114,57 @@ export default function AdminDashboard() {
     }
   }
 
-  // Sincronização com puca_flow_api_flow
+  // Persistência Corrigida e Atualização Instantânea no Estado
+  async function handleSaveForecastItem(
+    cliente: string, 
+    vendedor: string, 
+    dealId: string, 
+    etapa: string, 
+    setupVal: number, 
+    mrrVal: number, 
+    dataPrev: string, 
+    incluido: boolean
+  ) {
+    setSavingForecastId(cliente)
+
+    const payload = {
+      cliente_razao_social: cliente,
+      vendedor: vendedor || 'Não Definido',
+      deal_id: dealId || null,
+      valor_setup: setupVal || 0,
+      valor_mrr: mrrVal || 0,
+      data_previsao: dataPrev || null,
+      incluido_forecast: incluido
+    }
+
+    // 1. Atualização Instantânea no Estado Local (Garante funcionamento imediato da UI)
+    setForecastsMap(prev => ({
+      ...prev,
+      [cliente]: {
+        ...(prev[cliente] || {}),
+        ...payload
+      }
+    }))
+
+    // 2. Gravando no Banco do Supabase
+    const existing = forecastsMap[cliente]
+
+    if (existing && existing.id) {
+      await supabase.from('forecasts').update(payload).eq('id', existing.id)
+    } else {
+      const { data: inserted } = await supabase.from('forecasts').insert([payload]).select().single()
+      if (inserted) {
+        setForecastsMap(prev => ({
+          ...prev,
+          [cliente]: inserted
+        }))
+      }
+    }
+
+    setSavingForecastId(null)
+  }
+
+  // Sincronização via API PUCA
   async function handleSyncPucaApi() {
     setLoading(true)
     setStatusMsg('1/3 - Autenticando e conectando à tabela puca_flow_api_flow...')
@@ -214,31 +264,6 @@ export default function AdminDashboard() {
     }
 
     setLoading(false)
-  }
-
-  async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, etapa: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
-    setSavingForecastId(cliente)
-
-    const payload = {
-      cliente_razao_social: cliente,
-      vendedor: vendedor || 'Não Definido',
-      deal_id: dealId,
-      valor_setup: setupVal || 0,
-      valor_mrr: mrrVal || 0,
-      data_previsao: dataPrev || null,
-      incluido_forecast: incluido
-    }
-
-    const existing = forecastsMap[cliente]
-
-    if (existing) {
-      await supabase.from('forecasts').update(payload).eq('id', existing.id)
-    } else {
-      await supabase.from('forecasts').insert([payload])
-    }
-
-    await fetchDealsAndForecasts()
-    setSavingForecastId(null)
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -404,7 +429,7 @@ export default function AdminDashboard() {
   const listaIncluidosForecast = Object.values(forecastsMap).filter(f => f.incluido_forecast === true)
   const etapasPermitidasForecast = ['demonstração', 'proposta', 'negociação', 'assinatura']
 
-  // Filtragem e Ordenação Dinâmica dos Dados
+  // Filtragem e Ordenação dos Dados
   const dealsPermitidosForecast = dealsList
     .filter(d => {
       const etapaLc = (d.etapa || '').toString().toLowerCase()
@@ -558,7 +583,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {listaIncluidosForecast.map((f) => (
-                          <tr key={f.id} className="hover:bg-slate-50/80 transition">
+                          <tr key={f.id || f.cliente_razao_social} className="hover:bg-slate-50/80 transition">
                             <td className="p-2.5 text-center">
                               <input 
                                 type="checkbox"
@@ -669,7 +694,6 @@ export default function AdminDashboard() {
                       <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase sticky top-0 bg-slate-50 select-none">
                         <th className="p-2.5 text-center">Incluir</th>
 
-                        {/* Cabeçalhos Clicáveis para Ordenação */}
                         <th onClick={() => handleSort('cliente_razao_social')} className="p-2.5 cursor-pointer hover:bg-slate-100 transition">
                           Cliente (Razão Social) {sortField === 'cliente_razao_social' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
                         </th>
@@ -698,10 +722,10 @@ export default function AdminDashboard() {
                     <tbody className="divide-y divide-slate-100">
                       {dealsPermitidosForecast.map((deal) => {
                         const forecastObj = forecastsMap[deal.cliente_razao_social] || {}
-                        const isIncluido = forecastObj.incluido_forecast ?? false
+                        const isIncluido = Boolean(forecastObj.incluido_forecast)
 
                         return (
-                          <tr key={deal.id} className="hover:bg-slate-50/80 transition">
+                          <tr key={deal.id || deal.cliente_razao_social} className="hover:bg-slate-50/80 transition">
                             <td className="p-2.5 text-center">
                               <input 
                                 type="checkbox"
