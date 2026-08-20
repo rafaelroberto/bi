@@ -11,7 +11,7 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-const COLORS = ['#94A3B8', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#10B981', '#6366F1']
+const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#64748B']
 
 function calcularCicloVenda(dataCriacao: string, status: string, dataMudancaEtapa?: string): number {
   if (!dataCriacao) return 0
@@ -82,32 +82,34 @@ export default function UserDashboard() {
     const matchOrigem = filtroOrigem === '' || orig.includes(filtroOrigem.toLowerCase())
     const matchEtapa = filtroEtapa === '' || etap === filtroEtapa.toLowerCase()
 
-    if (!d.data_criacao) return matchVendedor && matchOrigem && matchEtapa
+    // Para negócios encerrados (Ganho/Perdido), usa a data de fechamento para análise RMR
+    const dataRefStr = (d.status === 'Ganho' && d.data_mudanca_etapa) ? d.data_mudanca_etapa : d.data_criacao
+    if (!dataRefStr) return matchVendedor && matchOrigem && matchEtapa
     
-    const dataCriacao = new Date(d.data_criacao)
+    const dataRef = new Date(dataRefStr)
     const hoje = new Date()
     let matchData = true
 
     if (filtroData === 'hoje') {
-      matchData = dataCriacao.toDateString() === hoje.toDateString()
+      matchData = dataRef.toDateString() === hoje.toDateString()
     } else if (filtroData === 'ontem') {
       const ontem = new Date()
       ontem.setDate(hoje.getDate() - 1)
-      matchData = dataCriacao.toDateString() === ontem.toDateString()
+      matchData = dataRef.toDateString() === ontem.toDateString()
     } else if (filtroData === 'este_mes') {
-      matchData = dataCriacao.getMonth() === hoje.getMonth() && dataCriacao.getFullYear() === hoje.getFullYear()
+      matchData = dataRef.getMonth() === hoje.getMonth() && dataRef.getFullYear() === hoje.getFullYear()
     } else if (filtroData === 'mes_passado') {
       const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
-      matchData = dataCriacao.getMonth() === mesPassado.getMonth() && dataCriacao.getFullYear() === mesPassado.getFullYear()
+      matchData = dataRef.getMonth() === mesPassado.getMonth() && dataRef.getFullYear() === mesPassado.getFullYear()
     } else if (filtroData === 'este_ano') {
-      matchData = dataCriacao.getFullYear() === hoje.getFullYear()
+      matchData = dataRef.getFullYear() === hoje.getFullYear()
     } else if (filtroData === 'ano_passado') {
-      matchData = dataCriacao.getFullYear() === hoje.getFullYear() - 1
+      matchData = dataRef.getFullYear() === hoje.getFullYear() - 1
     } else if (filtroData === 'personalizado' && dataInicioCustom && dataFimCustom) {
       const ini = new Date(dataInicioCustom)
       const fim = new Date(dataFimCustom)
       fim.setHours(23, 59, 59)
-      matchData = dataCriacao >= ini && dataCriacao <= fim
+      matchData = dataRef >= ini && dataRef <= fim
     }
 
     return matchVendedor && matchOrigem && matchEtapa && matchData
@@ -134,16 +136,17 @@ export default function UserDashboard() {
     ganhos: rankingVendedoresMap[k]
   })).sort((a, b) => b.ganhos - a.ganhos).slice(0, 10)
 
-  // Motivos de Perda (Tratamento dos 351 sem preenchimento)
+  // Motivos de Perda (Exibe inclusive os preenchidos que eram minoria)
   const motivosPerdaMap: Record<string, number> = {}
   dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').forEach(d => {
-    const m = d.motivo_perda ? d.motivo_perda.toString().trim() : 'Não Informado'
+    const m = (d.motivo_perda && d.motivo_perda.toString().trim() !== '') ? d.motivo_perda.toString().trim() : 'Sem Justificativa (CRM)'
     motivosPerdaMap[m] = (motivosPerdaMap[m] || 0) + 1
   })
+
   const motivosPerdaData = Object.keys(motivosPerdaMap).map(k => ({
     name: k,
-    value: motivosPerdaMap[k]
-  })).sort((a, b) => b.value - a.value)
+    total: motivosPerdaMap[k]
+  })).sort((a, b) => b.total - a.total)
 
   // Ranking Origem
   const origemMap: Record<string, number> = {}
@@ -323,31 +326,19 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Motivos de Perda com Legenda Completa */}
+        {/* Motivos de Perda em Barras Horizontais para ver TODAS as categorias */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-2">Motivos de Perda (Detalhados)</h3>
-          <p className="text-[10px] text-slate-400 mb-2">*351 de 376 registros estão sem justificativa preenchida no CRM.</p>
+          <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda (Todos)</h3>
+          <p className="text-[10px] text-slate-400 mb-3">*351 de 376 perdas estão sem motivo no CRM</p>
           <div className="h-56">
             {motivosPerdaData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie 
-                    data={motivosPerdaData} 
-                    dataKey="value" 
-                    nameKey="name" 
-                    cx="50%" 
-                    cy="50%" 
-                    innerRadius={35}
-                    outerRadius={60} 
-                    paddingAngle={2}
-                  >
-                    {motivosPerdaData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: any, name: any) => [`${value} perdas`, name]} />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '10px' }} />
-                </PieChart>
+                <BarChart data={motivosPerdaData} layout="vertical" margin={{ left: 10, right: 10 }}>
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="total" fill="#EF4444" radius={[0, 4, 4, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <p className="text-xs text-slate-400 text-center pt-20">Nenhum motivo de perda no filtro atual.</p>
@@ -389,7 +380,8 @@ export default function UserDashboard() {
               <th className="p-3">Origem</th>
               <th className="p-3">Vendedor</th>
               <th className="p-3">Data Criação</th>
-              <th className="p-3">Ciclo de Venda</th>
+              <th className="p-3">Data Fechamento</th>
+              <th className="p-3">Ciclo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -409,6 +401,7 @@ export default function UserDashboard() {
                 <td className="p-3 text-slate-600">{deal.origem}</td>
                 <td className="p-3 text-slate-600 font-medium">{deal.vendedor}</td>
                 <td className="p-3 text-slate-500">{deal.data_criacao ? new Date(deal.data_criacao).toLocaleDateString('pt-BR') : '-'}</td>
+                <td className="p-3 text-slate-500">{deal.data_mudanca_etapa ? new Date(deal.data_mudanca_etapa).toLocaleDateString('pt-BR') : '-'}</td>
                 <td className="p-3 font-bold text-slate-700">
                   {calcularCicloVenda(deal.data_criacao, deal.status, deal.data_mudanca_etapa)} dias
                 </td>

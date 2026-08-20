@@ -8,6 +8,23 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+function parseBRDate(dateStr: any) {
+  if (!dateStr) return null
+  const s = dateStr.toString().trim()
+  const parts = s.split(' ')
+  if (parts[0]) {
+    const dateParts = parts[0].split('/')
+    if (dateParts.length === 3) {
+      const day = dateParts[0].padStart(2, '0')
+      const month = dateParts[1].padStart(2, '0')
+      const year = dateParts[2]
+      const time = parts[1] || '00:00:00'
+      return new Date(`${year}-${month}-${day}T${time}`).toISOString()
+    }
+  }
+  return null
+}
+
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [statusMsg, setStatusMsg] = useState('')
@@ -55,13 +72,12 @@ export default function AdminDashboard() {
     }
   }
 
-  // Importação com o Mapeamento Exato da Planilha
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
     setLoading(true)
-    setStatusMsg('Importando e processando colunas da planilha RMR...')
+    setStatusMsg('Importando planilha...')
 
     const reader = new FileReader()
     reader.onload = async (evt) => {
@@ -72,7 +88,6 @@ export default function AdminDashboard() {
         const ws = wb.Sheets[wsname]
         const data: any[] = XLSX.utils.sheet_to_json(ws)
 
-        // Limpa a base anterior
         await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
         const rows = data.map((item: any) => {
@@ -85,34 +100,8 @@ export default function AdminDashboard() {
             statusFinal = 'Perdido'
           }
 
-          // Trata formato de data em PT-BR (DD/MM/YYYY HH:mm:ss)
-          let dataCriacaoIso = new Date().toISOString()
-          if (item['Data de criação do registro']) {
-            const parts = item['Data de criação do registro'].split(' ')
-            if (parts[0]) {
-              const dateParts = parts[0].split('/')
-              if (dateParts.length === 3) {
-                const day = dateParts[0]
-                const month = dateParts[1]
-                const year = dateParts[2]
-                dataCriacaoIso = new Date(`${year}-${month}-${day}T${parts[1] || '00:00:00'}`).toISOString()
-              }
-            }
-          }
-
-          let dataMudancaIso = null
-          if (item['Data de entrada na etapa']) {
-            const parts = item['Data de entrada na etapa'].split(' ')
-            if (parts[0]) {
-              const dateParts = parts[0].split('/')
-              if (dateParts.length === 3) {
-                const day = dateParts[0]
-                const month = dateParts[1]
-                const year = dateParts[2]
-                dataMudancaIso = new Date(`${year}-${month}-${day}T${parts[1] || '00:00:00'}`).toISOString()
-              }
-            }
-          }
+          const dataCriacaoIso = parseBRDate(item['Data de criação do registro']) || new Date().toISOString()
+          const dataMudancaIso = parseBRDate(item['Data de entrada na etapa'])
 
           return {
             cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
@@ -134,7 +123,7 @@ export default function AdminDashboard() {
             total_records: rows.length,
             updated_by: 'Admin',
           })
-          setStatusMsg(`Sucesso! ${rows.length} registros importados com os status corretos (37 Ganhos, 376 Perdidos, etc.).`)
+          setStatusMsg(`Sucesso! ${rows.length} registros importados com sucesso.`)
         } else {
           setStatusMsg('Erro ao salvar no banco: ' + error.message)
         }
