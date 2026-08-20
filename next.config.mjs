@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export', // Gera arquivos HTML/JS estáticos compatíveis com o GitHub Pages
+  output: 'export',
   images: {
-    unoptimized: true, // Necessário para exportação estática
+    unoptimized: true,
   },
 };
 
