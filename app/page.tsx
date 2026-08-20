@@ -30,6 +30,12 @@ export default function UserDashboard() {
 
   const [itensVisiveis, setItensVisiveis] = useState(10)
 
+  // Estado de Ordenação da Tabela (Padrão: Data de Criação - Mais Recente Primeiro)
+  const [ordenacao, setOrdenacao] = useState<{ campo: string; direcao: 'asc' | 'desc' }>({
+    campo: 'data_criacao',
+    direcao: 'desc'
+  })
+
   // Filtro por Clicar no KPI
   const [filtroKPI, setFiltroKPI] = useState<string>('todos')
 
@@ -70,6 +76,15 @@ export default function UserDashboard() {
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/bi/login'
+  }
+
+  // Alternar Ordenação
+  const handleOrdenar = (campo: string) => {
+    if (ordenacao.campo === campo) {
+      setOrdenacao({ campo, direcao: ordenacao.direcao === 'asc' ? 'desc' : 'asc' })
+    } else {
+      setOrdenacao({ campo, direcao: 'desc' })
+    }
   }
 
   // 1. Filtragem Base
@@ -137,6 +152,33 @@ export default function UserDashboard() {
     return true
   })
 
+  // 3. Aplicação da Ordenação
+  const dealsOrdenados = [...dealsFiltrados].sort((a, b) => {
+    let valA: any = 0
+    let valB: any = 0
+
+    if (ordenacao.campo === 'ciclo') {
+      valA = calcularCicloVenda(a.data_criacao, a.status, a.data_mudanca_etapa)
+      valB = calcularCicloVenda(b.data_criacao, b.status, b.data_mudanca_etapa)
+    } else if (ordenacao.campo === 'data_criacao') {
+      valA = a.data_criacao ? new Date(a.data_criacao).getTime() : 0
+      valB = b.data_criacao ? new Date(b.data_criacao).getTime() : 0
+    } else if (ordenacao.campo === 'data_mudanca_etapa') {
+      valA = a.data_mudanca_etapa ? new Date(a.data_mudanca_etapa).getTime() : 0
+      valB = b.data_mudanca_etapa ? new Date(b.data_mudanca_etapa).getTime() : 0
+    } else if (ordenacao.campo === 'cliente_razao_social') {
+      valA = (a.cliente_razao_social || '').toString().toLowerCase()
+      valB = (b.cliente_razao_social || '').toString().toLowerCase()
+    } else {
+      valA = (a[ordenacao.campo] || '').toString().toLowerCase()
+      valB = (b[ordenacao.campo] || '').toString().toLowerCase()
+    }
+
+    if (valA < valB) return ordenacao.direcao === 'asc' ? -1 : 1
+    if (valA > valB) return ordenacao.direcao === 'asc' ? 1 : -1
+    return 0
+  })
+
   const toggleKPIFilter = (kpiName: string) => {
     if (filtroKPI === kpiName) {
       setFiltroKPI('todos')
@@ -146,7 +188,7 @@ export default function UserDashboard() {
     }
   }
 
-  // Estágios do Funil Formatados
+  // Estágios do Funil
   const etapasFunilOrdem = [
     { label: 'Qualificação', key: 'qualificação', color: 'bg-slate-800' },
     { label: 'Prospecção', key: 'prospecção', color: 'bg-slate-700' },
@@ -176,7 +218,7 @@ export default function UserDashboard() {
     }
   })
 
-  // Dados para Gráficos Secundários
+  // Dados para Gráficos
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
@@ -397,9 +439,8 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Bloco Lado a Lado: Funil Compacto + Ranking de Vendedores */}
+      {/* Funil Compacto + Ranking de Vendedores */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Funil Compacto de Vendas */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
           <div>
             <h3 className="text-base font-extrabold text-slate-800 mb-1">Funil de Vendas por Etapa</h3>
@@ -423,7 +464,6 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Ranking de Vendedores */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-base font-extrabold text-slate-800 mb-1">Ranking de Vendedores</h3>
           <p className="text-xs text-slate-500 mb-4">Volume total de contas por consultor</p>
@@ -440,7 +480,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Gráficos Secundários: Motivos de Perda + Ranking Origem */}
+      {/* Gráficos Secundários */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda</h3>
@@ -476,30 +516,49 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabela de Detalhamento com Expansão */}
+      {/* Tabela de Detalhamento das Contas com Ordenação Clicável */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-base">
-            Detalhamento das Contas Exibindo {Math.min(itensVisiveis, dealsFiltrados.length)} de {dealsFiltrados.length}
+            Detalhamento das Contas Exibindo {Math.min(itensVisiveis, dealsOrdenados.length)} de {dealsOrdenados.length}
           </h3>
+          <span className="text-xs text-slate-400">Clique nos cabeçalhos da tabela para ordenar</span>
         </div>
 
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold text-xs uppercase tracking-wider">
-              <th className="p-3">Cliente (Razão Social)</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Etapa</th>
-              <th className="p-3">Motivo Perda</th>
-              <th className="p-3">Origem</th>
-              <th className="p-3">Vendedor</th>
-              <th className="p-3">Data Criação</th>
-              <th className="p-3">Data Fechamento</th>
-              <th className="p-3">Ciclo</th>
+            <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold text-xs uppercase tracking-wider select-none">
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('cliente_razao_social')}>
+                Cliente (Razão Social) {ordenacao.campo === 'cliente_razao_social' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('status')}>
+                Status {ordenacao.campo === 'status' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('etapa')}>
+                Etapa {ordenacao.campo === 'etapa' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('motivo_perda')}>
+                Motivo Perda {ordenacao.campo === 'motivo_perda' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('origem')}>
+                Origem {ordenacao.campo === 'origem' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('vendedor')}>
+                Vendedor {ordenacao.campo === 'vendedor' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('data_criacao')}>
+                Data Criação {ordenacao.campo === 'data_criacao' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-slate-800" onClick={() => handleOrdenar('data_mudanca_etapa')}>
+                Data Fechamento {ordenacao.campo === 'data_mudanca_etapa' && (ordenacao.direcao === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="p-3 cursor-pointer hover:text-blue-600 text-blue-700 font-extrabold" onClick={() => handleOrdenar('ciclo')}>
+                Ciclo {ordenacao.campo === 'ciclo' ? (ordenacao.direcao === 'asc' ? '↑' : '↓') : '↕'}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {dealsFiltrados.slice(0, itensVisiveis).map((deal) => (
+            {dealsOrdenados.slice(0, itensVisiveis).map((deal) => (
               <tr key={deal.id} className="hover:bg-slate-50/80 transition">
                 <td className="p-3 font-semibold text-slate-800">{deal.cliente_razao_social}</td>
                 <td className="p-3">
@@ -516,7 +575,7 @@ export default function UserDashboard() {
                 <td className="p-3 text-slate-600 font-medium">{deal.vendedor}</td>
                 <td className="p-3 text-slate-500">{deal.data_criacao ? new Date(deal.data_criacao).toLocaleDateString('pt-BR') : '-'}</td>
                 <td className="p-3 text-slate-500">{deal.data_mudanca_etapa ? new Date(deal.data_mudanca_etapa).toLocaleDateString('pt-BR') : '-'}</td>
-                <td className="p-3 font-bold text-slate-700">
+                <td className="p-3 font-bold text-slate-800 bg-slate-50/40">
                   {calcularCicloVenda(deal.data_criacao, deal.status, deal.data_mudanca_etapa)} dias
                 </td>
               </tr>
@@ -526,7 +585,7 @@ export default function UserDashboard() {
 
         {/* Controles de Expansão */}
         <div className="mt-6 flex justify-center gap-3">
-          {itensVisiveis < dealsFiltrados.length && (
+          {itensVisiveis < dealsOrdenados.length && (
             <>
               <button 
                 onClick={() => setItensVisiveis(prev => prev + 10)}
@@ -535,10 +594,10 @@ export default function UserDashboard() {
                 Mostrar +10
               </button>
               <button 
-                onClick={() => setItensVisiveis(dealsFiltrados.length)}
+                onClick={() => setItensVisiveis(dealsOrdenados.length)}
                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition"
               >
-                Mostrar Todos ({dealsFiltrados.length})
+                Mostrar Todos ({dealsOrdenados.length})
               </button>
             </>
           )}
