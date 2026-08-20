@@ -3,15 +3,12 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer 
 } from 'recharts'
 
 const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#64748B']
 
 function calcularCicloVenda(dataCriacao: string, status: string, dataMudancaEtapa?: string): number {
   if (!dataCriacao) return 0
@@ -33,7 +30,10 @@ export default function UserDashboard() {
 
   const [itensVisiveis, setItensVisiveis] = useState(10)
 
-  // Filtros
+  // Filtro por Clicar no KPI
+  const [filtroKPI, setFiltroKPI] = useState<string>('todos')
+
+  // Filtros Tradicionais
   const [filtroData, setFiltroData] = useState('todos')
   const [dataInicioCustom, setDataInicioCustom] = useState('')
   const [dataFimCustom, setDataFimCustom] = useState('')
@@ -72,8 +72,8 @@ export default function UserDashboard() {
     window.location.href = '/bi/login'
   }
 
-  // Filtragem Lógica Tolerante
-  const dealsFiltrados = deals.filter(d => {
+  // 1. Filtragem Base (Por Data, Vendedor, Origem, Etapa)
+  const dealsBaseData = deals.filter(d => {
     const vend = (d.vendedor || '').toString().toLowerCase()
     const orig = (d.origem || '').toString().toLowerCase()
     const etap = (d.etapa || '').toString().toLowerCase()
@@ -114,45 +114,61 @@ export default function UserDashboard() {
     return matchVendedor && matchOrigem && matchEtapa && matchData
   })
 
-  // KPIs
-  const totalCriadas = dealsFiltrados.length
-  const ganhos = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'ganho').length
-  const perdidos = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').length
-  const abertas = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'aberto').length
+  // Cálculos de KPIs Globais do Período
+  const totalCriadas = dealsBaseData.length
+  const ganhos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'ganho').length
+  const perdidos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'perdido').length
+  const abertas = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'aberto').length
 
   const totalEncerradas = ganhos + perdidos
   const taxaConversao = totalEncerradas > 0 ? ((ganhos / totalEncerradas) * 100).toFixed(1) : (totalCriadas > 0 ? ((ganhos / totalCriadas) * 100).toFixed(1) : '0.0')
 
-  // Média do Ciclo de Vendas (Ganhos)
-  const ganhosList = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'ganho')
+  const ganhosList = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'ganho')
   const totalDiasCiclo = ganhosList.reduce((acc, d) => acc + calcularCicloVenda(d.data_criacao, d.status, d.data_mudanca_etapa), 0)
   const mediaCicloVendas = ganhosList.length > 0 ? Math.round(totalDiasCiclo / ganhosList.length) : 0
 
-  // Ranking Vendedores
+  // 2. Aplicar o Filtro Interativo do KPI nos Gráficos e Tabela
+  const dealsFiltrados = dealsBaseData.filter(d => {
+    const st = (d.status || '').toLowerCase()
+    if (filtroKPI === 'ganho') return st === 'ganho'
+    if (filtroKPI === 'perdido') return st === 'perdido'
+    if (filtroKPI === 'aberto') return st === 'aberto'
+    if (filtroKPI === 'encerrados') return st === 'ganho' || st === 'perdido'
+    return true
+  })
+
+  // Função para Alternar o Filtro do KPI
+  const toggleKPIFilter = (kpiName: string) => {
+    if (filtroKPI === kpiName) {
+      setFiltroKPI('todos')
+    } else {
+      setFiltroKPI(kpiName)
+      setItensVisiveis(10)
+    }
+  }
+
+  // Dados para Gráficos Refletindo o Filtro
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
     if (!rankingVendedoresMap[v]) rankingVendedoresMap[v] = 0
-    if ((d.status || '').toLowerCase() === 'ganho') rankingVendedoresMap[v] += 1
+    rankingVendedoresMap[v] += 1
   })
   const rankingVendedoresData = Object.keys(rankingVendedoresMap).map(k => ({
     name: k,
-    ganhos: rankingVendedoresMap[k]
-  })).sort((a, b) => b.ganhos - a.ganhos).slice(0, 10)
+    total: rankingVendedoresMap[k]
+  })).sort((a, b) => b.total - a.total).slice(0, 10)
 
-  // Motivos de Perda
   const motivosPerdaMap: Record<string, number> = {}
   dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').forEach(d => {
     const m = (d.motivo_perda && d.motivo_perda.toString().trim() !== '') ? d.motivo_perda.toString().trim() : 'Sem Justificativa (CRM)'
     motivosPerdaMap[m] = (motivosPerdaMap[m] || 0) + 1
   })
-
   const motivosPerdaData = Object.keys(motivosPerdaMap).map(k => ({
     name: k,
     total: motivosPerdaMap[k]
   })).sort((a, b) => b.total - a.total)
 
-  // Ranking Origem
   const origemMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const o = d.origem || 'Outros'
@@ -276,11 +292,11 @@ export default function UserDashboard() {
           </select>
         </div>
 
-        {(filtroVendedor || filtroOrigem || filtroEtapa || filtroData !== 'todos') && (
+        {(filtroVendedor || filtroOrigem || filtroEtapa || filtroData !== 'todos' || filtroKPI !== 'todos') && (
           <button 
             onClick={() => { 
               setFiltroVendedor(''); setFiltroOrigem(''); setFiltroEtapa(''); setFiltroData('todos');
-              setDataInicioCustom(''); setDataFimCustom('');
+              setFiltroKPI('todos'); setDataInicioCustom(''); setDataFimCustom('');
             }}
             className="text-xs text-rose-600 hover:text-rose-800 font-bold p-2 transition"
           >
@@ -289,53 +305,102 @@ export default function UserDashboard() {
         )}
       </div>
 
-      {/* Grid de 6 Cards de KPIs */}
+      {/* Grid de KPIs Clicáveis / Interativos */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        {/* KPI Criadas */}
+        <div 
+          onClick={() => toggleKPIFilter('todos')}
+          className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
+            filtroKPI === 'todos' ? 'ring-2 ring-slate-800 bg-slate-100 border-slate-400' : 'bg-white border-slate-200 hover:border-slate-300'
+          }`}
+        >
           <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Criadas</p>
           <p className="text-2xl font-extrabold text-slate-900 mt-1">{totalCriadas}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-200 bg-emerald-50/20">
+
+        {/* KPI Ganhos */}
+        <div 
+          onClick={() => toggleKPIFilter('ganho')}
+          className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
+            filtroKPI === 'ganho' ? 'ring-2 ring-emerald-600 bg-emerald-100 border-emerald-400' : 'bg-white border-emerald-200 bg-emerald-50/20 hover:border-emerald-300'
+          }`}
+        >
           <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Ganhos</p>
           <p className="text-2xl font-extrabold text-emerald-600 mt-1">{ganhos}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-rose-200 bg-rose-50/20">
+
+        {/* KPI Perdidos */}
+        <div 
+          onClick={() => toggleKPIFilter('perdido')}
+          className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
+            filtroKPI === 'perdido' ? 'ring-2 ring-rose-600 bg-rose-100 border-rose-400' : 'bg-white border-rose-200 bg-rose-50/20 hover:border-rose-300'
+          }`}
+        >
           <p className="text-xs text-rose-600 font-bold uppercase tracking-wider">Perdidos</p>
           <p className="text-2xl font-extrabold text-rose-600 mt-1">{perdidos}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-amber-200 bg-amber-50/20">
+
+        {/* KPI Abertas */}
+        <div 
+          onClick={() => toggleKPIFilter('aberto')}
+          className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
+            filtroKPI === 'aberto' ? 'ring-2 ring-amber-600 bg-amber-100 border-amber-400' : 'bg-white border-amber-200 bg-amber-50/20 hover:border-amber-300'
+          }`}
+        >
           <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Abertas</p>
           <p className="text-2xl font-extrabold text-amber-600 mt-1">{abertas}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-200 bg-blue-50/20">
+
+        {/* KPI Taxa Conversão (Filtra por Encerradas: Ganhos + Perdidos) */}
+        <div 
+          onClick={() => toggleKPIFilter('encerrados')}
+          className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
+            filtroKPI === 'encerrados' ? 'ring-2 ring-blue-600 bg-blue-100 border-blue-400' : 'bg-white border-blue-200 bg-blue-50/20 hover:border-blue-300'
+          }`}
+        >
           <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">Taxa Conversão</p>
           <p className="text-2xl font-extrabold text-blue-600 mt-1">{taxaConversao}%</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-purple-200 bg-purple-50/20">
+
+        {/* KPI Ciclo Médio (Filtra por Ganhos) */}
+        <div 
+          onClick={() => toggleKPIFilter('ganho')}
+          className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
+            filtroKPI === 'ganho' ? 'ring-2 ring-purple-600 bg-purple-100 border-purple-400' : 'bg-white border-purple-200 bg-purple-50/20 hover:border-purple-300'
+          }`}
+        >
           <p className="text-xs text-purple-600 font-bold uppercase tracking-wider">Ciclo Médio</p>
           <p className="text-2xl font-extrabold text-purple-700 mt-1">{mediaCicloVendas} <span className="text-xs font-semibold">dias</span></p>
         </div>
       </div>
 
+      {/* Aviso de Filtro Ativo */}
+      {filtroKPI !== 'todos' && (
+        <div className="mb-6 flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold">
+          <span>Filtrando por KPI: <span className="uppercase text-amber-300">{filtroKPI}</span> ({dealsFiltrados.length} contas)</span>
+          <button onClick={() => setFiltroKPI('todos')} className="underline text-slate-300 hover:text-white">Remover Filtro do KPI</button>
+        </div>
+      )}
+
       {/* Seção de Gráficos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores (Ganhos)</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores ({filtroKPI.toUpperCase()})</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rankingVendedoresData} layout="vertical" margin={{ left: 10, right: 10 }}>
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="ganhos" fill="#10B981" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="total" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda (Todos)</h3>
-          <p className="text-[10px] text-slate-400 mb-3">*351 de 376 perdas estão sem motivo no CRM</p>
+          <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda</h3>
+          <p className="text-[10px] text-slate-400 mb-3">*Apenas contas com status Perdido</p>
           <div className="h-56">
             {motivosPerdaData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -353,7 +418,7 @@ export default function UserDashboard() {
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem do Lead</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem ({filtroKPI.toUpperCase()})</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={origemData}>
