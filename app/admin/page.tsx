@@ -8,7 +8,6 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Chave oficial do PUCA CRM restaurada
 const PUCA_API_KEY_SECRET = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
 
 function parseBRDate(dateStr: any) {
@@ -102,75 +101,99 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização via API Oficial do PUCA CRM
+  // Sincronização Dinâmica: Mapeia as views liberadas no dicionário do PUCA
   async function handleSyncPucaApi() {
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando com a API oficial do PUCA CRM...')
+    setStatusMsg('1/3 - Consultando o dicionário de tabelas e permissões do PUCA CRM...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
       const token = PUCA_API_KEY_SECRET
 
-      setStatusMsg('2/3 - Consultando dados da view user_funil_venda...')
+      // Busca a especificação técnica de todas as views acessíveis pelo usuário
+      const specUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/view/crud-especification')
+      
+      let tabelaAlvo = 'user_funil_venda'
+      let tabelasEncontradas: string[] = []
 
-      const viewsParaTestar = [
-        'user_funil_venda',
-        'user_view_funil_venda',
-        'user_view_crm',
-        'user_crm_deal'
-      ]
+      try {
+        const specRes = await fetch(`${corsProxy}${specUrl}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': token,
+            'Content-Type': 'application/json'
+          }
+        })
 
-      let rows: any[] | null = null
-      let viewSucesso = ''
+        if (specRes.ok) {
+          const specData = await specRes.json()
+          const viewsMap = specData.views || specData.data || specData
+          
+          if (typeof viewsMap === 'object') {
+            tabelasEncontradas = Object.keys(viewsMap)
+            
+            // Tenta encontrar dinamicamente a tabela do funil comercial
+            const matchFunil = tabelasEncontradas.find(t => 
+              t.includes('funil') || t.includes('venda') || t.includes('crm') || t.includes('deal')
+            )
 
-      for (const viewName of viewsParaTestar) {
-        const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${viewName}/find`)
-
-        try {
-          const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': token,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ from: viewName })
-          })
-
-          if (viewRes.ok) {
-            const rawData = await viewRes.json()
-            const res = rawData.data || rawData
-            if (Array.isArray(res) && res.length > 0) {
-              rows = res
-              viewSucesso = viewName
-              break
+            if (matchFunil) {
+              tabelaAlvo = matchFunil
             }
           }
-        } catch (e) {
-          // Tenta a próxima view
         }
+      } catch (e) {
+        console.warn('Erro ao consultar dicionário de views, prosseguindo com nome padrão...')
       }
 
-      if (!rows) {
-        throw new Error('A permissão da chave no PUCA CRM está pendente de liberação. Acesse Sys -> Integrações -> Robôs no PUCA e ative a caixa "Find/Consultar" para a tabela "user_funil_venda".')
+      setStatusMsg(`2/3 - Consultando dados da view "${tabelaAlvo}"...`)
+
+      // Consulta de dados na view identificada
+      const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${tabelaAlvo}/find`)
+
+      const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ from: tabelaAlvo })
+      })
+
+      if (!viewRes.ok) {
+        let msgAux = `Status ${viewRes.status}: Acesso negado para a tabela "${tabelaAlvo}".`
+        if (tabelasEncontradas.length > 0) {
+          msgAux += ` As tabelas liberadas para seu usuário atualmente são: ${tabelasEncontradas.join(', ')}.`
+        } else {
+          msgAux += ' Acesse Sys -> Integrações -> Robôs no PUCA e ative a caixa "Find/Consultar" para a tabela do funil.'
+        }
+        throw new Error(msgAux)
       }
 
-      setStatusMsg(`3/3 - Salvando ${rows.length} registros no Supabase...`)
+      const rawData = await viewRes.json()
+      const rows = rawData.data || rawData
+
+      if (!Array.isArray(rows)) {
+        throw new Error(`A tabela "${tabelaAlvo}" respondeu, mas não retornou uma lista de registros válidos.`)
+      }
+
+      setStatusMsg(`3/3 - Atualizando ${rows.length} oportunidades da tabela "${tabelaAlvo}" no Supabase...`)
 
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
-        const rawStatus = (item['Nome'] || item['etapa'] || '').toString().trim()
+        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || '').toString().trim()
         let statusFinal = 'Aberto'
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
 
         return {
-          cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
-          vendedor: item['Nome de Usuário'] || 'Não Definido',
-          origem: item['Indicação'] || 'Outros',
+          cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || item['title'] || 'N/A',
+          vendedor: item['Nome de Usuário'] || item['vendedor'] || item['user'] || 'Não Definido',
+          origem: item['Indicação'] || item['origem'] || 'Outros',
           etapa: rawStatus || 'Inicial',
           status: statusFinal,
-          motivo_perda: item['Nome.1'] || null,
+          motivo_perda: item['Nome.1'] || item['motivo_perda'] || null,
           data_criacao: item['Data de criação do registro'] ? parseBRDate(item['Data de criação do registro']) || new Date().toISOString() : new Date().toISOString(),
           data_mudanca_etapa: item['Data de entrada na etapa'] ? parseBRDate(item['Data de entrada na etapa']) : null,
         }
@@ -183,12 +206,12 @@ export default function AdminDashboard() {
       }
 
       await supabase.from('sheet_logs').insert({
-        file_name: `API PUCA (${viewSucesso})`,
+        file_name: `API PUCA (${tabelaAlvo})`,
         total_records: dealsToInsert.length,
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas.`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas da tabela "${tabelaAlvo}".`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
