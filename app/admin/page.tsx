@@ -8,8 +8,6 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-const PUCA_API_KEY_DEFAULT = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
-
 function parseBRDate(dateStr: any) {
   if (!dateStr) return null
   const s = dateStr.toString().trim()
@@ -39,6 +37,10 @@ export default function AdminDashboard() {
   const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
   const [inputNovaSenha, setInputNovaSenha] = useState('')
 
+  // Credenciais para Login via Usuário e Senha no PUCA
+  const [pucaUsername, setPucaUsername] = useState('')
+  const [pucaPassword, setPucaPassword] = useState('')
+
   // Módulo Retrátil & Estado do Forecast
   const [forecastExpandido, setForecastExpandido] = useState(true)
   const [abaForecast, setAbaForecast] = useState<'incluidos' | 'buscar'>('incluidos')
@@ -48,7 +50,7 @@ export default function AdminDashboard() {
   const [buscaClienteForecast, setBuscaClienteForecast] = useState('')
   const [savingForecastId, setSavingForecastId] = useState<string | null>(null)
 
-  // Formulário de Cadastro de Usuário
+  // Formulário de Cadastro de Usuário do Painel
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
@@ -101,48 +103,64 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Inteligente com Suporte a Fallback de Autenticação
-  async function handleSyncPucaAutomatic() {
-    const apiKeyParaUsar = PUCA_API_KEY_DEFAULT.trim()
+  // Sincronização via API com Usuário e Senha conforme documentação
+  async function handleSyncPucaUserPass() {
+    let user = pucaUsername.trim()
+    let pass = pucaPassword.trim()
+
+    if (!user) {
+      const uPrompt = prompt('Digite seu Usuário do PUCA CRM:')
+      if (!uPrompt) return
+      user = uPrompt.trim()
+    }
+
+    if (!pass) {
+      const pPrompt = prompt('Digite sua Senha do PUCA CRM:')
+      if (!pPrompt) return
+      pass = pPrompt.trim()
+    }
 
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando na API do PUCA CRM...')
+    setStatusMsg('1/3 - Efetuando login via /puca-base-api/puca-user/system_user/login...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
-      const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-user/system_user/login')
+      const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-base-api/puca-user/system_user/login')
+
+      // 1. POST em /puca-base-api/puca-user/system_user/login
+      const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user,
+          password: pass
+        })
+      })
+
+      if (!loginRes.ok) {
+        if (loginRes.status === 403) {
+          throw new Error('Usuário e/ou senha inválido(s) no PUCA CRM.')
+        }
+        throw new Error(`Falha no login do PUCA (Status HTTP ${loginRes.status}).`)
+      }
+
+      // Tratamento da resposta JWT em string conforme especificação técnica
+      let rawToken = await loginRes.text()
+      let token = rawToken.replace(/^"|"$/g, '').trim()
+
+      if (!token || token.length < 20) {
+        throw new Error('Não foi possível extrair a string JWT do PUCA CRM.')
+      }
+
+      setStatusMsg('2/3 - Autenticação com sucesso! Consultando a view user_funil_venda...')
+
+      // 2. Chamada à view no módulo CRUD com o JWT no header Authorization
       const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
 
-      let tokenSessao = ''
-
-      // Tentativa 1: Endpoint de Login Oficial
-      try {
-        const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: apiKeyParaUsar })
-        })
-
-        if (loginRes.ok) {
-          const loginData = await loginRes.json()
-          tokenSessao = loginData.token || loginData.session_token || loginData.data?.token || ''
-        }
-      } catch (e) {
-        console.warn('Tentativa 1 via login falhou, usando chave direta...')
-      }
-
-      // Se o endpoint de login não retornar token, usa a API Key diretamente como Token JWT
-      if (!tokenSessao) {
-        tokenSessao = apiKeyParaUsar
-      }
-
-      setStatusMsg('2/3 - Consultando oportunidades da view user_funil_venda...')
-
-      // Tentativa 2: Consulta com Token Cru ou Bearer
-      let viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+      const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
         method: 'POST',
         headers: {
-          'Authorization': tokenSessao,
+          'Authorization': token,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -161,44 +179,20 @@ export default function AdminDashboard() {
         })
       })
 
-      // Fallback: Tentativa com Bearer Header caso o token sem prefixo seja recusado
-      if (!viewRes.ok && !tokenSessao.startsWith('Bearer ')) {
-        viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${tokenSessao}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'user_funil_venda',
-            fields: [
-              'Chave Única',
-              'Título',
-              'Data de criação do registro',
-              'Data de entrada na etapa',
-              'Nome de Usuário',
-              'Nome',
-              'Indicação',
-              'Razão Social',
-              'Nome.1'
-            ]
-          })
-        })
-      }
-
       if (!viewRes.ok) {
-        throw new Error(`Erro na consulta à view user_funil_venda (Status: ${viewRes.status}). Verifique as permissões da chave no PUCA.`)
+        throw new Error(`Erro ao consultar dados no PUCA CRM (Status ${viewRes.status}). Verifique as permissões da conta.`)
       }
 
       const rawData = await viewRes.json()
       const rows = rawData.data || rawData
 
       if (!Array.isArray(rows)) {
-        throw new Error('A API do PUCA respondeu, mas não retornou a lista de dados esperada.')
+        throw new Error('A API do PUCA respondeu, mas não retornou a lista de oportunidades.')
       }
 
-      setStatusMsg(`3/3 - Gravando ${rows.length} oportunidades atualizadas no B.I....`)
+      setStatusMsg(`3/3 - Salvando ${rows.length} registros atualizados no B.I....`)
 
+      // 3. Atualização no Supabase
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
@@ -226,16 +220,16 @@ export default function AdminDashboard() {
       }
 
       await supabase.from('sheet_logs').insert({
-        file_name: 'Integração API PUCA (Automática)',
+        file_name: 'Integração API PUCA (Usuário e Senha)',
         total_records: dealsToInsert.length,
-        updated_by: 'Admin'
+        updated_by: user
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente da API do PUCA.`)
+      setStatusMsg(`Sucesso total! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
-      setStatusMsg('Aviso na Sincronização: ' + err.message)
+      setStatusMsg('Erro na Sincronização: ' + err.message)
     }
 
     setLoading(false)
@@ -461,34 +455,57 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Gestão da Base */}
+      {/* Gestão da Base de Dados - Integração PUCA CRM por Usuário e Senha */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou API)</h2>
-        <p className="text-xs text-slate-500 mb-4">Atualize via arquivo Excel ou diretamente pela integração da API oficial do PUCA CRM.</p>
+        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou Login PUCA CRM)</h2>
+        <p className="text-xs text-slate-500 mb-4">Insira o Usuário e Senha do PUCA CRM para sincronizar via API oficial (`puca-base-api`).</p>
         
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Usuário PUCA</label>
+            <input 
+              type="text" 
+              placeholder="seu.usuario"
+              value={pucaUsername}
+              onChange={(e) => setPucaUsername(e.target.value)}
+              className="p-2 border border-slate-300 rounded-xl text-xs min-w-[160px]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">Senha PUCA</label>
+            <input 
+              type="password" 
+              placeholder="••••••••"
+              value={pucaPassword}
+              onChange={(e) => setPucaPassword(e.target.value)}
+              className="p-2 border border-slate-300 rounded-xl text-xs min-w-[160px]"
+            />
+          </div>
+
           <button 
-            onClick={handleSyncPucaAutomatic}
+            onClick={handleSyncPucaUserPass}
             disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-2"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2 rounded-xl transition text-xs shadow-sm flex items-center gap-2 h-9"
           >
-            🔄 Sincronizar via API PUCA CRM
+            🔄 Sincronizar via Login PUCA
           </button>
 
-          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm">
-            Enviar Planilha Manual (XLS, XLSX, CSV)
+          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl cursor-pointer transition text-xs shadow-sm h-9 flex items-center">
+            Enviar Planilha Manual (XLS, XLSX)
             <input type="file" accept=".xls,.xlsx,.csv" onChange={handleFileUpload} className="hidden" disabled={loading} />
           </label>
 
           <button 
             onClick={handleClearDatabase}
             disabled={loading}
-            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-5 py-2.5 rounded-xl transition text-sm border border-rose-200"
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-4 py-2 rounded-xl transition text-xs border border-rose-200 h-9"
           >
             Apagar Banco
           </button>
         </div>
-        {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
+
+        {statusMsg && <p className="mt-2 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
       </div>
 
       {/* Módulo Retrátil do Forecast */}
