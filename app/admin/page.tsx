@@ -103,7 +103,7 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Adaptada para Compatibilidade de Payload
+  // Sincronização Adaptativa com Fallback de Endpoints e Payloads
   async function handleSyncPucaUserPass() {
     let user = pucaUsername.trim()
     let pass = pucaPassword.trim()
@@ -151,43 +151,60 @@ export default function AdminDashboard() {
         throw new Error('Não foi possível extrair a string JWT do PUCA CRM.')
       }
 
-      setStatusMsg('2/3 - Login efetuado com sucesso! Consultando a view user_funil_venda...')
+      setStatusMsg('2/3 - Login ok! Consultando oportunidades do funil...')
 
-      const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
-
-      // 2. Consulta à View sem filtro estrito de campos para evitar o HTTP 400
-      let viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json'
+      // Endpoints e Estruturas de Payload a testar
+      const endpointsParaTestar = [
+        {
+          url: 'https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find',
+          payloads: [
+            { from: 'user_funil_venda', args: {} },
+            { from: 'user_funil_venda' },
+            {}
+          ]
         },
-        body: JSON.stringify({
-          from: 'user_funil_venda'
-        })
-      })
+        {
+          url: 'https://lifeapps.puca.app/puca-crm-api/deal/find',
+          payloads: [
+            { from: 'puca_crm_api_deal', args: {} },
+            {}
+          ]
+        }
+      ]
 
-      // Se a view retornar 400 sem fields, tenta o segundo formato de payload
-      if (!viewRes.ok && viewRes.status === 400) {
-        viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': token,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
-        })
+      let rows: any[] | null = null
+
+      for (const itemEndpoint of endpointsParaTestar) {
+        const targetViewUrl = encodeURIComponent(itemEndpoint.url)
+
+        for (const payload of itemEndpoint.payloads) {
+          try {
+            const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+              method: 'POST',
+              headers: {
+                'Authorization': token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            })
+
+            if (viewRes.ok) {
+              const rawData = await viewRes.json()
+              const resultado = rawData.data || rawData
+              if (Array.isArray(resultado)) {
+                rows = resultado
+                break
+              }
+            }
+          } catch (e) {
+            // Continua para o próximo payload
+          }
+        }
+        if (rows) break
       }
 
-      if (!viewRes.ok) {
-        throw new Error(`Erro na consulta (HTTP ${viewRes.status}). Verifique as permissões do usuário no dicionário do PUCA.`)
-      }
-
-      const rawData = await viewRes.json()
-      const rows = rawData.data || rawData
-
-      if (!Array.isArray(rows)) {
-        throw new Error('A API do PUCA respondeu, mas o retorno não é uma lista de oportunidades.')
+      if (!rows || !Array.isArray(rows)) {
+        throw new Error('As rotas da API do PUCA responderam, mas rejeitaram os filtros do perfil. Verifique as permissões de acesso às views no seu usuário do PUCA.')
       }
 
       setStatusMsg(`3/3 - Salvando ${rows.length} registros atualizados no B.I....`)
@@ -196,14 +213,14 @@ export default function AdminDashboard() {
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
-        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || '').toString().trim()
+        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || item['name'] || '').toString().trim()
         let statusFinal = 'Aberto'
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
 
         return {
-          cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || 'N/A',
-          vendedor: item['Nome de Usuário'] || item['vendedor'] || 'Não Definido',
+          cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || item['title'] || 'N/A',
+          vendedor: item['Nome de Usuário'] || item['vendedor'] || item['user_name'] || 'Não Definido',
           origem: item['Indicação'] || item['origem'] || 'Outros',
           etapa: rawStatus || 'Inicial',
           status: statusFinal,
