@@ -35,7 +35,8 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: "https://lqmuwffifroxlhqcogtt.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk"
-        run: npm run build
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npx next build
 
       - name: Upload dos arquivos estáticos
         uses: actions/upload-pages-artifact@v3
