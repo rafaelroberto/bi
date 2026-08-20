@@ -72,7 +72,7 @@ export default function UserDashboard() {
     window.location.href = '/bi/login'
   }
 
-  // 1. Filtragem Base (Por Data, Vendedor, Origem, Etapa)
+  // 1. Filtragem Base
   const dealsBaseData = deals.filter(d => {
     const vend = (d.vendedor || '').toString().toLowerCase()
     const orig = (d.origem || '').toString().toLowerCase()
@@ -114,7 +114,7 @@ export default function UserDashboard() {
     return matchVendedor && matchOrigem && matchEtapa && matchData
   })
 
-  // Cálculos de KPIs Globais do Período
+  // KPIs Globais
   const totalCriadas = dealsBaseData.length
   const ganhos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'ganho').length
   const perdidos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'perdido').length
@@ -127,7 +127,7 @@ export default function UserDashboard() {
   const totalDiasCiclo = ganhosList.reduce((acc, d) => acc + calcularCicloVenda(d.data_criacao, d.status, d.data_mudanca_etapa), 0)
   const mediaCicloVendas = ganhosList.length > 0 ? Math.round(totalDiasCiclo / ganhosList.length) : 0
 
-  // 2. Aplicar o Filtro Interativo do KPI nos Gráficos e Tabela
+  // 2. Aplicar Filtro do KPI
   const dealsFiltrados = dealsBaseData.filter(d => {
     const st = (d.status || '').toLowerCase()
     if (filtroKPI === 'ganho') return st === 'ganho'
@@ -137,7 +137,6 @@ export default function UserDashboard() {
     return true
   })
 
-  // Função para Alternar o Filtro do KPI
   const toggleKPIFilter = (kpiName: string) => {
     if (filtroKPI === kpiName) {
       setFiltroKPI('todos')
@@ -147,7 +146,38 @@ export default function UserDashboard() {
     }
   }
 
-  // Dados para Gráficos Refletindo o Filtro
+  // Dados do Funil em Ordem do Topo para a Base
+  const etapasFunilOrdem = [
+    { label: 'Qualificação', key: 'qualificação', color: 'from-cyan-900 to-cyan-800' },
+    { label: 'Prospecção', key: 'prospecção', color: 'from-cyan-800 to-cyan-700' },
+    { label: 'Demonstração', key: 'demonstração', color: 'from-cyan-700 to-cyan-600' },
+    { label: 'Proposta', key: 'proposta', color: 'from-cyan-600 to-teal-600' },
+    { label: 'Negociação', key: 'negociação', color: 'from-teal-600 to-teal-500' },
+    { label: 'Assinatura', key: 'assinatura', color: 'from-teal-500 to-emerald-500' },
+    { label: 'Ganho', key: 'ganho', color: 'from-emerald-600 to-emerald-500' },
+    { label: 'Perdido', key: 'perdido', color: 'from-rose-600 to-rose-500' }
+  ]
+
+  const funilCalculado = etapasFunilOrdem.map((etapaObj, idx) => {
+    const count = dealsBaseData.filter(d => {
+      const e = (d.etapa || '').toString().toLowerCase()
+      const st = (d.status || '').toString().toLowerCase()
+      if (etapaObj.key === 'ganho') return st === 'ganho' || e === 'ganho'
+      if (etapaObj.key === 'perdido') return st === 'perdido' || e === 'perdido'
+      return e.includes(etapaObj.key)
+    }).length
+
+    // Largura visual trapezoidal
+    const widthPercent = Math.max(28, 100 - idx * 9)
+
+    return {
+      ...etapaObj,
+      count,
+      widthPercent
+    }
+  })
+
+  // Dados para Gráficos
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
@@ -305,9 +335,8 @@ export default function UserDashboard() {
         )}
       </div>
 
-      {/* Grid de KPIs Clicáveis / Interativos */}
+      {/* Grid de KPIs Clicáveis */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
-        {/* KPI Criadas */}
         <div 
           onClick={() => toggleKPIFilter('todos')}
           className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
@@ -318,7 +347,6 @@ export default function UserDashboard() {
           <p className="text-2xl font-extrabold text-slate-900 mt-1">{totalCriadas}</p>
         </div>
 
-        {/* KPI Ganhos */}
         <div 
           onClick={() => toggleKPIFilter('ganho')}
           className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
@@ -329,7 +357,6 @@ export default function UserDashboard() {
           <p className="text-2xl font-extrabold text-emerald-600 mt-1">{ganhos}</p>
         </div>
 
-        {/* KPI Perdidos */}
         <div 
           onClick={() => toggleKPIFilter('perdido')}
           className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
@@ -340,7 +367,6 @@ export default function UserDashboard() {
           <p className="text-2xl font-extrabold text-rose-600 mt-1">{perdidos}</p>
         </div>
 
-        {/* KPI Abertas */}
         <div 
           onClick={() => toggleKPIFilter('aberto')}
           className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
@@ -351,7 +377,6 @@ export default function UserDashboard() {
           <p className="text-2xl font-extrabold text-amber-600 mt-1">{abertas}</p>
         </div>
 
-        {/* KPI Taxa Conversão (Filtra por Encerradas: Ganhos + Perdidos) */}
         <div 
           onClick={() => toggleKPIFilter('encerrados')}
           className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
@@ -362,7 +387,6 @@ export default function UserDashboard() {
           <p className="text-2xl font-extrabold text-blue-600 mt-1">{taxaConversao}%</p>
         </div>
 
-        {/* KPI Ciclo Médio (Filtra por Ganhos) */}
         <div 
           onClick={() => toggleKPIFilter('ganho')}
           className={`p-4 rounded-2xl cursor-pointer transition shadow-sm border ${
@@ -374,18 +398,32 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Aviso de Filtro Ativo */}
-      {filtroKPI !== 'todos' && (
-        <div className="mb-6 flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold">
-          <span>Filtrando por KPI: <span className="uppercase text-amber-300">{filtroKPI}</span> ({dealsFiltrados.length} contas)</span>
-          <button onClick={() => setFiltroKPI('todos')} className="underline text-slate-300 hover:text-white">Remover Filtro do KPI</button>
-        </div>
-      )}
+      {/* NOVO: Gráfico Visual de Funil de Vendas Trapezoidal */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <h3 className="text-base font-extrabold text-slate-800 mb-1">Funil de Vendas por Etapa</h3>
+        <p className="text-xs text-slate-500 mb-6">Progressão do Funil da Qualificação até o Fechamento / Perda</p>
 
-      {/* Seção de Gráficos */}
+        <div className="flex flex-col items-center gap-2 max-w-2xl mx-auto py-2">
+          {funilCalculado.map((f) => (
+            <div 
+              key={f.label} 
+              onClick={() => { setFiltroEtapa(f.label); setItensVisiveis(10); }}
+              style={{ width: `${f.widthPercent}%` }}
+              className={`bg-gradient-to-r ${f.color} text-white font-bold py-2.5 px-4 rounded-xl shadow-sm cursor-pointer hover:opacity-95 transition flex justify-between items-center text-xs md:text-sm`}
+            >
+              <span>{f.label}</span>
+              <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-xs font-extrabold">
+                {f.count}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Seção de Gráficos Secundários */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores ({filtroKPI.toUpperCase()})</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rankingVendedoresData} layout="vertical" margin={{ left: 10, right: 10 }}>
@@ -400,7 +438,7 @@ export default function UserDashboard() {
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda</h3>
-          <p className="text-[10px] text-slate-400 mb-3">*Apenas contas com status Perdido</p>
+          <p className="text-[10px] text-slate-400 mb-3">*Contas perdidas</p>
           <div className="h-56">
             {motivosPerdaData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -418,7 +456,7 @@ export default function UserDashboard() {
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem ({filtroKPI.toUpperCase()})</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={origemData}>
@@ -432,7 +470,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabela de Detalhamento com Expansão */}
+      {/* Tabela de Detalhamento */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-base">
