@@ -8,7 +8,6 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Chave da API oficial do PUCA CRM configurada
 const PUCA_API_KEY_DEFAULT = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
 
 function parseBRDate(dateStr: any) {
@@ -102,44 +101,48 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Automática com 1 Clique
+  // Sincronização Inteligente com Suporte a Fallback de Autenticação
   async function handleSyncPucaAutomatic() {
     const apiKeyParaUsar = PUCA_API_KEY_DEFAULT.trim()
 
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
+    setStatusMsg('1/3 - Autenticando na API do PUCA CRM...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
       const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-user/system_user/login')
-
-      // 1. Login no PUCA
-      const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKeyParaUsar })
-      })
-
-      if (!loginRes.ok) {
-        throw new Error('Falha na autenticação do PUCA CRM. Verifique a API Key.')
-      }
-
-      const loginData = await loginRes.json()
-      const token = loginData.token || loginData.session_token || loginData.data?.token
-
-      if (!token) {
-        throw new Error('Token de sessão não foi retornado pelo PUCA.')
-      }
-
-      setStatusMsg('2/3 - Consultando oportunidades na view user_funil_venda...')
-
-      // 2. Consulta de Dados na View
       const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
 
-      const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+      let tokenSessao = ''
+
+      // Tentativa 1: Endpoint de Login Oficial
+      try {
+        const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: apiKeyParaUsar })
+        })
+
+        if (loginRes.ok) {
+          const loginData = await loginRes.json()
+          tokenSessao = loginData.token || loginData.session_token || loginData.data?.token || ''
+        }
+      } catch (e) {
+        console.warn('Tentativa 1 via login falhou, usando chave direta...')
+      }
+
+      // Se o endpoint de login não retornar token, usa a API Key diretamente como Token JWT
+      if (!tokenSessao) {
+        tokenSessao = apiKeyParaUsar
+      }
+
+      setStatusMsg('2/3 - Consultando oportunidades da view user_funil_venda...')
+
+      // Tentativa 2: Consulta com Token Cru ou Bearer
+      let viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
         method: 'POST',
         headers: {
-          'Authorization': token,
+          'Authorization': tokenSessao,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -158,20 +161,44 @@ export default function AdminDashboard() {
         })
       })
 
+      // Fallback: Tentativa com Bearer Header caso o token sem prefixo seja recusado
+      if (!viewRes.ok && !tokenSessao.startsWith('Bearer ')) {
+        viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${tokenSessao}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'user_funil_venda',
+            fields: [
+              'Chave Única',
+              'Título',
+              'Data de criação do registro',
+              'Data de entrada na etapa',
+              'Nome de Usuário',
+              'Nome',
+              'Indicação',
+              'Razão Social',
+              'Nome.1'
+            ]
+          })
+        })
+      }
+
       if (!viewRes.ok) {
-        throw new Error('Erro ao consultar a view user_funil_venda no PUCA CRM.')
+        throw new Error(`Erro na consulta à view user_funil_venda (Status: ${viewRes.status}). Verifique as permissões da chave no PUCA.`)
       }
 
       const rawData = await viewRes.json()
       const rows = rawData.data || rawData
 
       if (!Array.isArray(rows)) {
-        throw new Error('Formato de resposta inesperado do PUCA CRM.')
+        throw new Error('A API do PUCA respondeu, mas não retornou a lista de dados esperada.')
       }
 
-      setStatusMsg(`3/3 - Atualizando ${rows.length} registros no banco de dados do B.I....`)
+      setStatusMsg(`3/3 - Gravando ${rows.length} oportunidades atualizadas no B.I....`)
 
-      // 3. Atualização no Supabase
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
@@ -195,7 +222,7 @@ export default function AdminDashboard() {
       const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
 
       if (insertError) {
-        throw new Error('Erro ao gravar dados no Supabase: ' + insertError.message)
+        throw new Error('Erro ao salvar no Supabase: ' + insertError.message)
       }
 
       await supabase.from('sheet_logs').insert({
@@ -204,11 +231,11 @@ export default function AdminDashboard() {
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente da API do PUCA.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
-      setStatusMsg('Erro na Sincronização: ' + err.message)
+      setStatusMsg('Aviso na Sincronização: ' + err.message)
     }
 
     setLoading(false)
@@ -793,7 +820,7 @@ export default function AdminDashboard() {
         {userMsg && <p className="mt-4 text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-200">{userMsg}</p>}
       </div>
 
-      {/* Tabela de Usuários com Alteração de Senha Integrada */}
+      {/* Tabela de Usuários */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <h2 className="text-base font-bold text-slate-800 mb-4">Usuários Cadastrados ({profiles.length})</h2>
 
