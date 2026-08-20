@@ -62,7 +62,7 @@ export default function DashboardPage() {
     isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)
   )
 
-  // 2. GANHOS NO PERÍODO (Todo fechamento no período)
+  // 2. GANHOS NO PERÍODO (Todo fechamento dentro do filtro)
   const dealsGanhosNoPeriodo = dealsFiltrados.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -77,7 +77,7 @@ export default function DashboardPage() {
   // 4. ABERTAS NO PERÍODO
   const dealsAbertosNoPeriodo = dealsCriadosNoPeriodo.filter(d => d.status === 'Aberto')
 
-  // 5. TAXA DE CONVERSÃO POR SAFRA (Criadas no período X e Ganhas no mesmo período X)
+  // 5. TAXA DE CONVERSÃO AJUSTADA (COHORT / SAFRA)
   const dealsCriadosEFechadosMesmaSafra = dealsCriadosNoPeriodo.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -105,13 +105,7 @@ export default function DashboardPage() {
     ? Math.round(temposFechamento.reduce((a, b) => a + b, 0) / temposFechamento.length)
     : 0
 
-  // Agrupamentos
-  const porEtapa = dealsFiltrados.reduce((acc: any, d) => {
-    const e = d.etapa || 'Outras'
-    acc[e] = (acc[e] || 0) + 1
-    return acc
-  }, {})
-
+  // Desempenho por Vendedor
   const porVendedor = dealsFiltrados.reduce((acc: any, d) => {
     const v = d.vendedor || 'Não Definido'
     if (!acc[v]) acc[v] = { criadas: 0, ganhos: 0, perdidos: 0 }
@@ -121,6 +115,21 @@ export default function DashboardPage() {
     return acc
   }, {})
 
+  // Desempenho por Origem
+  const porOrigem = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
+    const o = d.origem || 'Não Informada'
+    acc[o] = (acc[o] || 0) + 1
+    return acc
+  }, {})
+
+  // Desempenho por Etapa do Funil
+  const porEtapa = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
+    const e = d.etapa || 'Inicial'
+    acc[e] = (acc[e] || 0) + 1
+    return acc
+  }, {})
+
+  // Motivos de Perda
   const porMotivoPerda = dealsPerdidosNoPeriodo.reduce((acc: any, d) => {
     const m = d.motivo_perda || 'Não Informado'
     acc[m] = (acc[m] || 0) + 1
@@ -131,7 +140,7 @@ export default function DashboardPage() {
   const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean)
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-600 font-sans">Carregando Dashboard...</div>
+    return <div className="p-8 text-center text-slate-600 font-sans">Carregando Dashboard Comercial...</div>
   }
 
   return (
@@ -246,7 +255,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Painéis de Desempenho e Funil */}
+      {/* Grid de Painéis Secundários */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Desempenho por Vendedor */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -262,13 +271,15 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {Object.entries(porVendedor).map(([v, val]: any) => (
-                  <tr key={v} className="hover:bg-slate-50">
-                    <td className="p-2 font-semibold text-slate-800">{v}</td>
-                    <td className="p-2 text-center text-slate-600 font-bold">{val.criadas}</td>
-                    <td className="p-2 text-center text-emerald-600 font-bold">{val.ganhos}</td>
-                    <td className="p-2 text-center text-rose-600 font-bold">{val.perdidos}</td>
-                  </tr>
+                {Object.entries(porVendedor)
+                  .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
+                  .map(([v, val]: any) => (
+                    <tr key={v} className="hover:bg-slate-50">
+                      <td className="p-2 font-semibold text-slate-800">{v}</td>
+                      <td className="p-2 text-center text-slate-600 font-bold">{val.criadas}</td>
+                      <td className="p-2 text-center text-emerald-600 font-bold">{val.ganhos}</td>
+                      <td className="p-2 text-center text-rose-600 font-bold">{val.perdidos}</td>
+                    </tr>
                 ))}
               </tbody>
             </table>
@@ -278,10 +289,9 @@ export default function DashboardPage() {
         {/* Motivos de Perda */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda</h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {Object.entries(porMotivoPerda)
               .sort((a: any, b: any) => b[1] - a[1])
-              .slice(0, 5)
               .map(([motivo, count]: any) => {
                 const pct = dealsPerdidosNoPeriodo.length > 0 
                   ? ((count / dealsPerdidosNoPeriodo.length) * 100).toFixed(0) 
@@ -294,6 +304,56 @@ export default function DashboardPage() {
                     </div>
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+
+        {/* Origem das Oportunidades */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades</h2>
+          <div className="space-y-3">
+            {Object.entries(porOrigem)
+              .sort((a: any, b: any) => b[1] - a[1])
+              .map(([origem, count]: any) => {
+                const pct = dealsCriadosNoPeriodo.length > 0 
+                  ? ((count / dealsCriadosNoPeriodo.length) * 100).toFixed(0) 
+                  : 0
+                return (
+                  <div key={origem}>
+                    <div className="flex justify-between text-xs font-semibold mb-1">
+                      <span className="text-slate-700">{origem}</span>
+                      <span className="text-slate-500">{count} ({pct}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+
+        {/* Distribuição por Etapas do Funil */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 className="text-base font-bold text-slate-800 mb-4">Volume por Etapa do Funil</h2>
+          <div className="space-y-3">
+            {Object.entries(porEtapa)
+              .sort((a: any, b: any) => b[1] - a[1])
+              .map(([etapa, count]: any) => {
+                const pct = dealsCriadosNoPeriodo.length > 0 
+                  ? ((count / dealsCriadosNoPeriodo.length) * 100).toFixed(0) 
+                  : 0
+                return (
+                  <div key={etapa}>
+                    <div className="flex justify-between text-xs font-semibold mb-1">
+                      <span className="text-slate-700">{etapa}</span>
+                      <span className="text-slate-500">{count} ({pct}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
                     </div>
                   </div>
                 )
