@@ -101,104 +101,58 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // ALTERAÇÃO DIRETA DE SENHA NO BANCO (SEM E-MAIL)
-  async function handleSaveNewPasswordDirect(userId: string) {
-    if (!inputNovaSenha || inputNovaSenha.length < 6) {
-      alert('A nova senha deve possuir no mínimo 6 caracteres.')
-      return
-    }
-
-    setLoading(true)
-
-    // Tenta executar a função RPC criada no banco
-    const { error } = await supabase.rpc('admin_update_user_password', {
-      user_id: userId,
-      new_password: inputNovaSenha
-    })
-
-    if (!error) {
-      alert('Senha atualizada com sucesso no banco de dados!')
-      setChangingPasswordUserId(null)
-      setInputNovaSenha('')
-    } else {
-      alert('Erro ao atualizar senha no banco: ' + error.message)
-    }
-
-    setLoading(false)
-  }
-
-  // Sincronização Dinâmica da API do PUCA CRM
+  // Sincronização Mapeando a View - Flow - 66 - Funil de Vendas
   async function handleSyncPucaApi() {
     setLoading(true)
-    setStatusMsg('1/3 - Consultando o dicionário de tabelas e permissões do PUCA CRM...')
+    setStatusMsg('1/3 - Autenticando e conectando à View Flow 66 (Funil de Vendas)...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
       const token = PUCA_API_KEY_SECRET
 
-      const specUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/view/crud-especification')
-      
-      let tabelaAlvo = 'user_funil_venda'
-      let tabelasEncontradas: string[] = []
+      // Variações do nome da tabela de acordo com a imagem identificada
+      const viewsParaTestar = [
+        'user_view_flow_66_funil_de_vendas',
+        'user_view_flow_66',
+        'user_funil_de_vendas',
+        'user_funil_venda'
+      ]
 
-      try {
-        const specRes = await fetch(`${corsProxy}${specUrl}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': token,
-            'Content-Type': 'application/json'
-          }
-        })
+      let rows: any[] | null = null
+      let viewSucesso = ''
 
-        if (specRes.ok) {
-          const specData = await specRes.json()
-          const viewsMap = specData.views || specData.data || specData
-          
-          if (typeof viewsMap === 'object') {
-            tabelasEncontradas = Object.keys(viewsMap)
-            const matchFunil = tabelasEncontradas.find(t => 
-              t.includes('funil') || t.includes('venda') || t.includes('crm') || t.includes('deal')
-            )
-            if (matchFunil) {
-              tabelaAlvo = matchFunil
+      for (const viewName of viewsParaTestar) {
+        const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${viewName}/find`)
+
+        try {
+          const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ from: viewName })
+          })
+
+          if (viewRes.ok) {
+            const rawData = await viewRes.json()
+            const res = rawData.data || rawData
+            if (Array.isArray(res) && res.length > 0) {
+              rows = res
+              viewSucesso = viewName
+              break
             }
           }
+        } catch (e) {
+          // Segue para o próximo formato de nome de view
         }
-      } catch (e) {
-        console.warn('Erro ao consultar dicionário de views, prosseguindo com nome padrão...')
       }
 
-      setStatusMsg(`2/3 - Consultando dados da view "${tabelaAlvo}"...`)
-
-      const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${tabelaAlvo}/find`)
-
-      const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ from: tabelaAlvo })
-      })
-
-      if (!viewRes.ok) {
-        let msgAux = `Status ${viewRes.status}: Acesso negado para a tabela "${tabelaAlvo}".`
-        if (tabelasEncontradas.length > 0) {
-          msgAux += ` As tabelas liberadas para seu usuário atualmente são: ${tabelasEncontradas.join(', ')}.`
-        } else {
-          msgAux += ' Acesse Sys -> Integrações -> Robôs no PUCA e ative a caixa "Find/Consultar" para a tabela do funil.'
-        }
-        throw new Error(msgAux)
+      if (!rows) {
+        throw new Error('A chave de robô está sem permissão de consulta (Find) na tabela "View - Flow - 66 - Funil de Vendas". Acesse Sys -> Integrações -> Robôs no PUCA e ative a permissão dessa view.')
       }
 
-      const rawData = await viewRes.json()
-      const rows = rawData.data || rawData
-
-      if (!Array.isArray(rows)) {
-        throw new Error(`A tabela "${tabelaAlvo}" respondeu, mas não retornou uma lista de registros válidos.`)
-      }
-
-      setStatusMsg(`3/3 - Atualizando ${rows.length} oportunidades da tabela "${tabelaAlvo}" no Supabase...`)
+      setStatusMsg(`2/3 - Sincronizado com sucesso da view "${viewSucesso}"! Gravando ${rows.length} registros...`)
 
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
@@ -223,16 +177,16 @@ export default function AdminDashboard() {
       const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
 
       if (insertError) {
-        throw new Error('Erro ao gravar dados no Supabase: ' + insertError.message)
+        throw new Error('Erro ao salvar dados no Supabase: ' + insertError.message)
       }
 
       await supabase.from('sheet_logs').insert({
-        file_name: `API PUCA (${tabelaAlvo})`,
+        file_name: `API PUCA (${viewSucesso})`,
         total_records: dealsToInsert.length,
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas da tabela "${tabelaAlvo}".`)
+      setStatusMsg(`Sucesso total! ${dealsToInsert.length} oportunidades sincronizadas diretamente da view "${viewSucesso}".`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
@@ -371,6 +325,30 @@ export default function AdminDashboard() {
       setNewPassword('')
       await fetchProfiles()
     }
+  }
+
+  async function handleSaveNewPasswordDirect(userId: string) {
+    if (!inputNovaSenha || inputNovaSenha.length < 6) {
+      alert('A nova senha deve possuir no mínimo 6 caracteres.')
+      return
+    }
+
+    setLoading(true)
+
+    const { error } = await supabase.rpc('admin_update_user_password', {
+      user_id: userId,
+      new_password: inputNovaSenha
+    })
+
+    if (!error) {
+      alert('Senha atualizada com sucesso no banco de dados!')
+      setChangingPasswordUserId(null)
+      setInputNovaSenha('')
+    } else {
+      alert('Erro ao atualizar senha no banco: ' + error.message)
+    }
+
+    setLoading(false)
   }
 
   async function handleToggleStatus(userId: string, currentStatus: string) {
