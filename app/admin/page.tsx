@@ -13,26 +13,22 @@ export default function AdminDashboard() {
   const [statusMsg, setStatusMsg] = useState('')
   const [userMsg, setUserMsg] = useState('')
 
-  // Estado para Gestão de Usuários
   const [profiles, setProfiles] = useState<any[]>([])
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
-  // Formulário de Novo Usuário
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
 
   useEffect(() => {
     async function initAdmin() {
-      // 1. Verifica Sessão
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         window.location.href = '/bi/login'
         return
       }
 
-      // 2. Verifica Nível de Acesso no Profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -52,7 +48,6 @@ export default function AdminDashboard() {
     initAdmin()
   }, [])
 
-  // Buscar todos os usuários
   async function fetchProfiles() {
     const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
     if (!error && data) {
@@ -60,13 +55,13 @@ export default function AdminDashboard() {
     }
   }
 
-  // Subir Planilha e Sobrescrever Banco
+  // Importação e Mapeamento Inteligente
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
     setLoading(true)
-    setStatusMsg('Processando e categorizando registros...')
+    setStatusMsg('Analisando colunas da planilha e reclassificando base...')
 
     const reader = new FileReader()
     reader.onload = async (evt) => {
@@ -80,30 +75,53 @@ export default function AdminDashboard() {
         await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
         const rows = data.map((item: any) => {
-          const rawStatus = (
-            item['Status'] || item['status'] || item['Situação'] || item['Situacao'] || item['Fase'] || ''
-          ).toString().trim().toLowerCase()
+          // Junta todos os valores de cada linha para varrer palavras-chave
+          const linhaTexto = Object.values(item).join(' ').toLowerCase()
 
+          // Busca flexível de campos
           let statusFinal = 'Aberto'
-          if (rawStatus.includes('ganho') || rawStatus.includes('ganha') || rawStatus.includes('fechado') || rawStatus.includes('vendido')) {
+          if (
+            linhaTexto.includes('ganho') || 
+            linhaTexto.includes('ganha') || 
+            linhaTexto.includes('fechado') || 
+            linhaTexto.includes('vendido') || 
+            linhaTexto.includes('won')
+          ) {
             statusFinal = 'Ganho'
-          } else if (rawStatus.includes('perdido') || rawStatus.includes('perdida') || rawStatus.includes('cancelado') || rawStatus.includes('perda')) {
+          } else if (
+            linhaTexto.includes('perdido') || 
+            linhaTexto.includes('perdida') || 
+            linhaTexto.includes('cancelado') || 
+            linhaTexto.includes('perda') || 
+            linhaTexto.includes('lost')
+          ) {
             statusFinal = 'Perdido'
           }
 
+          // Busca inteligente de colunas
+          const keys = Object.keys(item)
+          const findVal = (terms: string[]) => {
+            const foundKey = keys.find(k => terms.some(t => k.toLowerCase().includes(t)))
+            return foundKey ? item[foundKey] : null
+          }
+
+          const cliente = findVal(['razao', 'cliente', 'empresa', 'nome']) || 'N/A'
+          const vendedor = findVal(['vendedor', 'proprietario', 'proprietário', 'usuario', 'usuário', 'representante']) || 'N/A'
+          const origem = findVal(['origem', 'canal', 'indicacao', 'indicação', 'fonte']) || 'Outros'
+          const etapa = findVal(['etapa', 'fase', 'funil', 'status']) || 'Inicial'
+          const motivo = findVal(['motivo', 'perda', 'justificativa']) || null
+          const dataCriacao = findVal(['criacao', 'criação', 'data', 'created']) || null
+          const dataFechamento = findVal(['fechamento', 'mudanca', 'mudança', 'goal']) || null
+
           return {
-            cliente_razao_social: item['Razao Social'] || item['Razão Social'] || item['Cliente'] || item['Empresa'] || 'N/A',
-            vendedor: item['Vendedor'] || item['Proprietário'] || item['Usuario'] || 'N/A',
-            origem: item['Origem'] || item['Canal'] || item['Indicação'] || 'Outros',
-            etapa: item['Etapa'] || item['Fase Atual'] || 'Inicial',
+            cliente_razao_social: cliente,
+            vendedor: vendedor,
+            origem: origem,
+            etapa: etapa,
             status: statusFinal,
-            motivo_perda: item['Motivo Perda'] || item['Motivo de Perda'] || item['Motivo'] || null,
-            data_criacao: item['Data Criacao'] || item['Data de Criacao'] || item['Data Criação']
-              ? new Date(item['Data Criacao'] || item['Data de Criacao'] || item['Data Criação']).toISOString() 
-              : new Date().toISOString(),
-            data_mudanca_etapa: item['Data Fechamento'] || item['Data Mudanca Etapa']
-              ? new Date(item['Data Fechamento'] || item['Data Mudanca Etapa']).toISOString() 
-              : null,
+            motivo_perda: motivo,
+            data_criacao: dataCriacao ? new Date(dataCriacao).toISOString() : new Date().toISOString(),
+            data_mudanca_etapa: dataFechamento ? new Date(dataFechamento).toISOString() : null,
           }
         })
 
@@ -115,7 +133,7 @@ export default function AdminDashboard() {
             total_records: rows.length,
             updated_by: 'Admin',
           })
-          setStatusMsg(`Sucesso! ${rows.length} registros atualizados no banco.`)
+          setStatusMsg(`Sucesso! ${rows.length} registros reclassificados com sucesso.`)
         } else {
           setStatusMsg('Erro ao salvar no banco: ' + error.message)
         }
@@ -127,7 +145,6 @@ export default function AdminDashboard() {
     reader.readAsBinaryString(file)
   }
 
-  // Apagar Planilha
   async function handleClearDatabase() {
     if (!confirm('Deseja realmente apagar todos os dados da planilha no banco?')) return
     setLoading(true)
@@ -140,7 +157,6 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
-  // Criar Usuário
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault()
     setUserMsg('Criando usuário...')
@@ -170,7 +186,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Alternar Status (Ativar / Inativar)
   async function handleToggleStatus(userId: string, currentStatus: string) {
     const nextStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo'
     const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', userId)
@@ -181,7 +196,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Salvar Edição de Perfil (Role)
   async function handleSaveRole(userId: string) {
     const { error } = await supabase.from('profiles').update({ role: editRole }).eq('id', userId)
     if (!error) {
@@ -192,7 +206,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Excluir Usuário do Banco
   async function handleDeleteUser(userId: string, email: string) {
     if (!confirm(`Tem certeza de que deseja remover o usuário ${email}?`)) return
     const { error } = await supabase.from('profiles').delete().eq('id', userId)
@@ -209,7 +222,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen font-sans">
-      {/* Topo / Header */}
       <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Painel Administrativo - B.I. RMR</h1>
@@ -221,10 +233,9 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Bloco 1: Gestão da Base de Dados */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha)</h2>
-        <p className="text-xs text-slate-500 mb-4">Envie um novo arquivo para atualizar totalmente os números do B.I.</p>
+        <p className="text-xs text-slate-500 mb-4">Envie a planilha novamente para reclassificar os status e popular os gráficos.</p>
         
         <div className="flex flex-wrap items-center gap-4">
           <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm">
@@ -243,7 +254,6 @@ export default function AdminDashboard() {
         {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
       </div>
 
-      {/* Bloco 2: Cadastro de Novo Usuário */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Cadastrar Novo Usuário</h2>
         <p className="text-xs text-slate-500 mb-4">Crie novos acessos para a equipe e defina suas permissões.</p>
@@ -293,7 +303,6 @@ export default function AdminDashboard() {
         {userMsg && <p className="mt-4 text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-200">{userMsg}</p>}
       </div>
 
-      {/* Bloco 3: Tabela de Gestão de Usuários (Ver, Editar, Excluir, Ativar/Inativar) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <h2 className="text-base font-bold text-slate-800 mb-4">Usuários Cadastrados ({profiles.length})</h2>
 
@@ -341,7 +350,6 @@ export default function AdminDashboard() {
                 </td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-2 items-center">
-                    {/* Botão Editar Permissão */}
                     <button 
                       onClick={() => { setEditingUserId(p.id); setEditRole(p.role) }}
                       className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2.5 py-1 rounded-lg transition"
@@ -349,7 +357,6 @@ export default function AdminDashboard() {
                       Editar Permissão
                     </button>
 
-                    {/* Botão Ativar / Inativar */}
                     <button 
                       onClick={() => handleToggleStatus(p.id, p.status)}
                       className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition ${
@@ -359,7 +366,6 @@ export default function AdminDashboard() {
                       {p.status === 'ativo' ? 'Inativar' : 'Ativar'}
                     </button>
 
-                    {/* Botão Excluir */}
                     <button 
                       onClick={() => handleDeleteUser(p.id, p.email)}
                       className="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-2.5 py-1 rounded-lg transition border border-rose-200"
