@@ -96,24 +96,110 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // PASSO 3: Função disparada pelo botão "Sincronizar via API PUCA CRM"
-  async function handleSyncPuca() {
+  // Sincronização Direta da API do PUCA no Navegador (Garante funcionamento imediato)
+  async function handleSyncPucaDirect() {
+    const apiKey = prompt('Digite sua PUCA_API_KEY para autenticar e sincronizar:')
+    if (!apiKey) return
+
     setLoading(true)
-    setStatusMsg('Conectando ao PUCA CRM e buscando oportunidades atualizadas...')
+    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
 
     try {
-      // Invoca a Edge Function criada no Passo 2
-      const { data, error } = await supabase.functions.invoke('puca-sync')
+      const pucaBaseUrl = 'https://lifeapps.puca.app'
 
-      if (!error && data?.success) {
-        setStatusMsg(`Sucesso! ${data.total} registros sincronizados diretamente do PUCA CRM via API!`)
-        await fetchDealsAndForecasts()
-      } else {
-        setStatusMsg('Aviso na sincronização: ' + (error?.message || data?.error || 'Certifique-se de implantar a Edge Function puca-sync'))
+      // 1. Autenticação no PUCA
+      const loginRes = await fetch(`${pucaBaseUrl}/puca-user/system_user/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'curl/8.5.0' },
+        body: JSON.stringify({ api_key: apiKey.trim() })
+      })
+
+      if (!loginRes.ok) {
+        throw new Error('Falha de autenticação no PUCA. Verifique a API Key digitada.')
       }
+
+      const loginData = await loginRes.json()
+      const token = loginData.token || loginData.session_token || loginData.data?.token
+
+      if (!token) {
+        throw new Error('Token de sessão não retornado pelo PUCA.')
+      }
+
+      setStatusMsg('2/3 - Consultando oportunidades da view user_funil_venda...')
+
+      // 2. Consulta à View
+      const viewRes = await fetch(`${pucaBaseUrl}/puca-crud-api/user-table/user_funil_venda/find`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token,
+          'Content-Type': 'application/json',
+          'User-Agent': 'curl/8.5.0'
+        },
+        body: JSON.stringify({
+          from: 'user_funil_venda',
+          fields: [
+            'Chave Única',
+            'Título',
+            'Data de criação do registro',
+            'Data de entrada na etapa',
+            'Nome de Usuário',
+            'Nome',
+            'Indicação',
+            'Razão Social',
+            'Nome.1'
+          ]
+        })
+      })
+
+      if (!viewRes.ok) {
+        throw new Error('Erro ao buscar registros da view user_funil_venda.')
+      }
+
+      const rawData = await viewRes.json()
+      const rows = rawData.data || rawData
+
+      setStatusMsg(`3/3 - Salvando ${rows.length} registros no banco de dados B.I....`)
+
+      // 3. Limpa e grava no Supabase
+      await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+      const dealsToInsert = rows.map((item: any) => {
+        const rawStatus = (item['Nome'] || '').toString().trim()
+        let statusFinal = 'Aberto'
+        if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
+        else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
+
+        return {
+          cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
+          vendedor: item['Nome de Usuário'] || 'Não Definido',
+          origem: item['Indicação'] || 'Outros',
+          etapa: rawStatus || 'Inicial',
+          status: statusFinal,
+          motivo_perda: item['Nome.1'] || null,
+          data_criacao: item['Data de criação do registro'] ? parseBRDate(item['Data de criação do registro']) || new Date().toISOString() : new Date().toISOString(),
+          data_mudanca_etapa: item['Data de entrada na etapa'] ? parseBRDate(item['Data de entrada na etapa']) : null,
+        }
+      })
+
+      const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
+
+      if (insertError) {
+        throw new Error('Erro ao gravar no Supabase: ' + insertError.message)
+      }
+
+      await supabase.from('sheet_logs').insert({
+        file_name: 'Integração API PUCA (Direta)',
+        total_records: dealsToInsert.length,
+        updated_by: 'Admin'
+      })
+
+      setStatusMsg(`Sucesso total! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
+      await fetchDealsAndForecasts()
+
     } catch (err: any) {
-      setStatusMsg('Erro de conexão com o servidor: ' + err.message)
+      setStatusMsg('Erro na Sincronização: ' + err.message)
     }
+
     setLoading(false)
   }
 
@@ -319,15 +405,14 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Bloco de Gestão da Base com Botão de Sincronização da API */}
+      {/* Bloco de Gestão da Base com Botão Direto */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou API)</h2>
         <p className="text-xs text-slate-500 mb-4">Atualize via arquivo Excel ou diretamente pela integração da API oficial do PUCA CRM.</p>
         
         <div className="flex flex-wrap items-center gap-4">
-          {/* BOTÃO DA INTEGRAÇÃO DO PASSO 3 */}
           <button 
-            onClick={handleSyncPuca}
+            onClick={handleSyncPucaDirect}
             disabled={loading}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-2"
           >
