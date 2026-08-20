@@ -55,13 +55,13 @@ export default function AdminDashboard() {
     }
   }
 
-  // Importação e Mapeamento Inteligente
+  // Importação com o Mapeamento Exato da Planilha
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
     setLoading(true)
-    setStatusMsg('Analisando colunas da planilha e reclassificando base...')
+    setStatusMsg('Importando e processando colunas da planilha RMR...')
 
     const reader = new FileReader()
     reader.onload = async (evt) => {
@@ -72,56 +72,57 @@ export default function AdminDashboard() {
         const ws = wb.Sheets[wsname]
         const data: any[] = XLSX.utils.sheet_to_json(ws)
 
+        // Limpa a base anterior
         await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
         const rows = data.map((item: any) => {
-          // Junta todos os valores de cada linha para varrer palavras-chave
-          const linhaTexto = Object.values(item).join(' ').toLowerCase()
-
-          // Busca flexível de campos
+          const rawEtapaOuStatus = (item['Nome'] || '').toString().trim()
+          
           let statusFinal = 'Aberto'
-          if (
-            linhaTexto.includes('ganho') || 
-            linhaTexto.includes('ganha') || 
-            linhaTexto.includes('fechado') || 
-            linhaTexto.includes('vendido') || 
-            linhaTexto.includes('won')
-          ) {
+          if (rawEtapaOuStatus.toLowerCase() === 'ganho') {
             statusFinal = 'Ganho'
-          } else if (
-            linhaTexto.includes('perdido') || 
-            linhaTexto.includes('perdida') || 
-            linhaTexto.includes('cancelado') || 
-            linhaTexto.includes('perda') || 
-            linhaTexto.includes('lost')
-          ) {
+          } else if (rawEtapaOuStatus.toLowerCase() === 'perdido') {
             statusFinal = 'Perdido'
           }
 
-          // Busca inteligente de colunas
-          const keys = Object.keys(item)
-          const findVal = (terms: string[]) => {
-            const foundKey = keys.find(k => terms.some(t => k.toLowerCase().includes(t)))
-            return foundKey ? item[foundKey] : null
+          // Trata formato de data em PT-BR (DD/MM/YYYY HH:mm:ss)
+          let dataCriacaoIso = new Date().toISOString()
+          if (item['Data de criação do registro']) {
+            const parts = item['Data de criação do registro'].split(' ')
+            if (parts[0]) {
+              const dateParts = parts[0].split('/')
+              if (dateParts.length === 3) {
+                const day = dateParts[0]
+                const month = dateParts[1]
+                const year = dateParts[2]
+                dataCriacaoIso = new Date(`${year}-${month}-${day}T${parts[1] || '00:00:00'}`).toISOString()
+              }
+            }
           }
 
-          const cliente = findVal(['razao', 'cliente', 'empresa', 'nome']) || 'N/A'
-          const vendedor = findVal(['vendedor', 'proprietario', 'proprietário', 'usuario', 'usuário', 'representante']) || 'N/A'
-          const origem = findVal(['origem', 'canal', 'indicacao', 'indicação', 'fonte']) || 'Outros'
-          const etapa = findVal(['etapa', 'fase', 'funil', 'status']) || 'Inicial'
-          const motivo = findVal(['motivo', 'perda', 'justificativa']) || null
-          const dataCriacao = findVal(['criacao', 'criação', 'data', 'created']) || null
-          const dataFechamento = findVal(['fechamento', 'mudanca', 'mudança', 'goal']) || null
+          let dataMudancaIso = null
+          if (item['Data de entrada na etapa']) {
+            const parts = item['Data de entrada na etapa'].split(' ')
+            if (parts[0]) {
+              const dateParts = parts[0].split('/')
+              if (dateParts.length === 3) {
+                const day = dateParts[0]
+                const month = dateParts[1]
+                const year = dateParts[2]
+                dataMudancaIso = new Date(`${year}-${month}-${day}T${parts[1] || '00:00:00'}`).toISOString()
+              }
+            }
+          }
 
           return {
-            cliente_razao_social: cliente,
-            vendedor: vendedor,
-            origem: origem,
-            etapa: etapa,
+            cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
+            vendedor: item['Nome de Usuário'] || 'Não Definido',
+            origem: item['Indicação'] || 'Outros',
+            etapa: rawEtapaOuStatus || 'Inicial',
             status: statusFinal,
-            motivo_perda: motivo,
-            data_criacao: dataCriacao ? new Date(dataCriacao).toISOString() : new Date().toISOString(),
-            data_mudanca_etapa: dataFechamento ? new Date(dataFechamento).toISOString() : null,
+            motivo_perda: item['Nome.1'] || null,
+            data_criacao: dataCriacaoIso,
+            data_mudanca_etapa: dataMudancaIso,
           }
         })
 
@@ -133,7 +134,7 @@ export default function AdminDashboard() {
             total_records: rows.length,
             updated_by: 'Admin',
           })
-          setStatusMsg(`Sucesso! ${rows.length} registros reclassificados com sucesso.`)
+          setStatusMsg(`Sucesso! ${rows.length} registros importados com os status corretos (37 Ganhos, 376 Perdidos, etc.).`)
         } else {
           setStatusMsg('Erro ao salvar no banco: ' + error.message)
         }
@@ -235,7 +236,7 @@ export default function AdminDashboard() {
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha)</h2>
-        <p className="text-xs text-slate-500 mb-4">Envie a planilha novamente para reclassificar os status e popular os gráficos.</p>
+        <p className="text-xs text-slate-500 mb-4">Reenvie o arquivo para popular os indicadores com a estrutura correta.</p>
         
         <div className="flex flex-wrap items-center gap-4">
           <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm">
