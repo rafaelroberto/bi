@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell, Legend 
 } from 'recharts'
 
 const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1']
+const COLORS = ['#94A3B8', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#10B981', '#6366F1']
 
 function calcularCicloVenda(dataCriacao: string, status: string, dataMudancaEtapa?: string): number {
   if (!dataCriacao) return 0
@@ -31,7 +31,6 @@ export default function UserDashboard() {
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-  // Controle de Visualização da Tabela
   const [itensVisiveis, setItensVisiveis] = useState(10)
 
   // Filtros
@@ -73,7 +72,7 @@ export default function UserDashboard() {
     window.location.href = '/bi/login'
   }
 
-  // Filtragem Lógica Tolerante
+  // Filtragem
   const dealsFiltrados = deals.filter(d => {
     const vend = (d.vendedor || '').toString().toLowerCase()
     const orig = (d.origem || '').toString().toLowerCase()
@@ -114,17 +113,16 @@ export default function UserDashboard() {
     return matchVendedor && matchOrigem && matchEtapa && matchData
   })
 
-  // Cálculo dos KPIs
+  // KPIs
   const totalCriadas = dealsFiltrados.length
   const ganhos = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'ganho').length
   const perdidos = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').length
   const abertas = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'aberto').length
 
-  // Taxa de Conversão
   const totalEncerradas = ganhos + perdidos
   const taxaConversao = totalEncerradas > 0 ? ((ganhos / totalEncerradas) * 100).toFixed(1) : (totalCriadas > 0 ? ((ganhos / totalCriadas) * 100).toFixed(1) : '0.0')
 
-  // Dados para Gráficos
+  // Ranking Vendedores
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
@@ -136,16 +134,18 @@ export default function UserDashboard() {
     ganhos: rankingVendedoresMap[k]
   })).sort((a, b) => b.ganhos - a.ganhos).slice(0, 10)
 
+  // Motivos de Perda (Tratamento dos 351 sem preenchimento)
   const motivosPerdaMap: Record<string, number> = {}
   dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').forEach(d => {
-    const m = d.motivo_perda || 'Não informado'
+    const m = d.motivo_perda ? d.motivo_perda.toString().trim() : 'Não Informado'
     motivosPerdaMap[m] = (motivosPerdaMap[m] || 0) + 1
   })
   const motivosPerdaData = Object.keys(motivosPerdaMap).map(k => ({
     name: k,
     value: motivosPerdaMap[k]
-  }))
+  })).sort((a, b) => b.value - a.value)
 
+  // Ranking Origem
   const origemMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const o = d.origem || 'Outros'
@@ -306,8 +306,9 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Gráficos */}
+      {/* Seção de Gráficos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Ranking Vendedores */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores (Ganhos)</h3>
           <div className="h-64">
@@ -322,18 +323,30 @@ export default function UserDashboard() {
           </div>
         </div>
 
+        {/* Motivos de Perda com Legenda Completa */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Motivos de Perda</h3>
-          <div className="h-64">
+          <h3 className="text-sm font-bold text-slate-800 mb-2">Motivos de Perda (Detalhados)</h3>
+          <p className="text-[10px] text-slate-400 mb-2">*351 de 376 registros estão sem justificativa preenchida no CRM.</p>
+          <div className="h-56">
             {motivosPerdaData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={motivosPerdaData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                  <Pie 
+                    data={motivosPerdaData} 
+                    dataKey="value" 
+                    nameKey="name" 
+                    cx="50%" 
+                    cy="50%" 
+                    innerRadius={35}
+                    outerRadius={60} 
+                    paddingAngle={2}
+                  >
                     {motivosPerdaData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value: any, name: any) => [`${value} perdas`, name]} />
+                  <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '10px' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -342,6 +355,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
+        {/* Ranking Origem */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem do Lead</h3>
           <div className="h-64">
@@ -357,7 +371,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabela com Expansão (10 iniciais) */}
+      {/* Tabela de Detalhamento com Expansão */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-base">
@@ -371,6 +385,7 @@ export default function UserDashboard() {
               <th className="p-3">Cliente (Razão Social)</th>
               <th className="p-3">Status</th>
               <th className="p-3">Etapa</th>
+              <th className="p-3">Motivo Perda</th>
               <th className="p-3">Origem</th>
               <th className="p-3">Vendedor</th>
               <th className="p-3">Data Criação</th>
@@ -390,6 +405,7 @@ export default function UserDashboard() {
                   </span>
                 </td>
                 <td className="p-3 text-slate-600 font-medium">{deal.etapa}</td>
+                <td className="p-3 text-slate-500 text-xs italic">{deal.motivo_perda || '-'}</td>
                 <td className="p-3 text-slate-600">{deal.origem}</td>
                 <td className="p-3 text-slate-600 font-medium">{deal.vendedor}</td>
                 <td className="p-3 text-slate-500">{deal.data_criacao ? new Date(deal.data_criacao).toLocaleDateString('pt-BR') : '-'}</td>
