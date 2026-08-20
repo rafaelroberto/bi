@@ -8,7 +8,6 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Chave API oficial do robô do PUCA CRM
 const PUCA_API_KEY_SECRET = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
 
 function parseBRDate(dateStr: any) {
@@ -102,66 +101,65 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Direta da API do PUCA no Painel
+  // Sincronização Inteligente com Varredura de Views
   async function handleSyncPucaApi() {
     setLoading(true)
     setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
-      const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-user/system_user/login')
-      const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
+      const token = PUCA_API_KEY_SECRET
 
-      // 1. Tenta autenticação via login oficial ou usa o token direto do robô
-      let token = PUCA_API_KEY_SECRET
+      setStatusMsg('2/3 - Buscando permissão nas views do funil comercial no PUCA...')
 
-      try {
-        const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: PUCA_API_KEY_SECRET })
-        })
+      // Nomes de views para teste de permissão
+      const viewsParaTestar = [
+        'user_funil_venda',
+        'user_view_funil_venda',
+        'user_view_crm',
+        'user_crm_deal'
+      ]
 
-        if (loginRes.ok) {
-          const loginData = await loginRes.json()
-          token = loginData.token || loginData.session_token || loginData.data?.token || PUCA_API_KEY_SECRET
+      let rows: any[] | null = null
+      let viewSucesso = ''
+
+      for (const viewName of viewsParaTestar) {
+        const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${viewName}/find`)
+
+        try {
+          const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ from: viewName })
+          })
+
+          if (viewRes.ok) {
+            const rawData = await viewRes.json()
+            const res = rawData.data || rawData
+            if (Array.isArray(res) && res.length > 0) {
+              rows = res
+              viewSucesso = viewName
+              break
+            }
+          }
+        } catch (e) {
+          // Tenta a próxima view
         }
-      } catch (e) {
-        // Fallback de token direto
       }
 
-      setStatusMsg('2/3 - Consultando dados atualizados da view user_funil_venda...')
-
-      // 2. Consulta à View
-      const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: 'user_funil_venda'
-        })
-      })
-
-      if (!viewRes.ok) {
-        throw new Error(`Erro ao consultar dados no PUCA CRM (Status ${viewRes.status}).`)
+      if (!rows) {
+        throw new Error('Status 403: A chave de robô foi autenticada, mas o PUCA negou acesso. Habilite a permissão de consulta (Find) para a view "user_funil_venda" no menu Sys -> Integrações -> Robôs do PUCA.')
       }
 
-      const rawData = await viewRes.json()
-      const rows = rawData.data || rawData
+      setStatusMsg(`3/3 - Salvando ${rows.length} registros da view "${viewSucesso}" no Supabase...`)
 
-      if (!Array.isArray(rows)) {
-        throw new Error('A resposta recebida do PUCA CRM não é um array válido.')
-      }
-
-      setStatusMsg(`3/3 - Salvando ${rows.length} registros atualizados no Supabase...`)
-
-      // 3. Atualização no Supabase
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
-        const rawStatus = (item['Nome'] || '').toString().trim()
+        const rawStatus = (item['Nome'] || item['etapa'] || '').toString().trim()
         let statusFinal = 'Aberto'
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
@@ -181,20 +179,20 @@ export default function AdminDashboard() {
       const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
 
       if (insertError) {
-        throw new Error('Erro ao salvar no banco Supabase: ' + insertError.message)
+        throw new Error('Erro ao gravar dados no Supabase: ' + insertError.message)
       }
 
       await supabase.from('sheet_logs').insert({
-        file_name: 'Integração API PUCA (Direta)',
+        file_name: `API PUCA (${viewSucesso})`,
         total_records: dealsToInsert.length,
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente da API do PUCA.`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
-      setStatusMsg('Erro na Sincronização: ' + err.message)
+      setStatusMsg('Aviso na Sincronização: ' + err.message)
     }
 
     setLoading(false)
