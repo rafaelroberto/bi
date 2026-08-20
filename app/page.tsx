@@ -146,16 +146,16 @@ export default function UserDashboard() {
     }
   }
 
-  // Dados do Funil em Ordem do Topo para a Base
+  // Estágios do Funil Formatados
   const etapasFunilOrdem = [
-    { label: 'Qualificação', key: 'qualificação', color: 'from-cyan-900 to-cyan-800' },
-    { label: 'Prospecção', key: 'prospecção', color: 'from-cyan-800 to-cyan-700' },
-    { label: 'Demonstração', key: 'demonstração', color: 'from-cyan-700 to-cyan-600' },
-    { label: 'Proposta', key: 'proposta', color: 'from-cyan-600 to-teal-600' },
-    { label: 'Negociação', key: 'negociação', color: 'from-teal-600 to-teal-500' },
-    { label: 'Assinatura', key: 'assinatura', color: 'from-teal-500 to-emerald-500' },
-    { label: 'Ganho', key: 'ganho', color: 'from-emerald-600 to-emerald-500' },
-    { label: 'Perdido', key: 'perdido', color: 'from-rose-600 to-rose-500' }
+    { label: 'Qualificação', key: 'qualificação', color: 'bg-slate-800' },
+    { label: 'Prospecção', key: 'prospecção', color: 'bg-slate-700' },
+    { label: 'Demonstração', key: 'demonstração', color: 'bg-blue-700' },
+    { label: 'Proposta', key: 'proposta', color: 'bg-blue-600' },
+    { label: 'Negociação', key: 'negociação', color: 'bg-cyan-600' },
+    { label: 'Assinatura', key: 'assinatura', color: 'bg-teal-600' },
+    { label: 'Ganho', key: 'ganho', color: 'bg-emerald-600' },
+    { label: 'Perdido', key: 'perdido', color: 'bg-rose-600' }
   ]
 
   const funilCalculado = etapasFunilOrdem.map((etapaObj, idx) => {
@@ -167,8 +167,7 @@ export default function UserDashboard() {
       return e.includes(etapaObj.key)
     }).length
 
-    // Largura visual trapezoidal
-    const widthPercent = Math.max(28, 100 - idx * 9)
+    const widthPercent = Math.max(30, 100 - idx * 8)
 
     return {
       ...etapaObj,
@@ -177,7 +176,7 @@ export default function UserDashboard() {
     }
   })
 
-  // Dados para Gráficos
+  // Dados para Gráficos Secundários
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
@@ -398,53 +397,60 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* NOVO: Gráfico Visual de Funil de Vendas Trapezoidal */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-        <h3 className="text-base font-extrabold text-slate-800 mb-1">Funil de Vendas por Etapa</h3>
-        <p className="text-xs text-slate-500 mb-6">Progressão do Funil da Qualificação até o Fechamento / Perda</p>
+      {/* Bloco Lado a Lado: Funil Compacto + Ranking de Vendedores */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Funil Compacto de Vendas */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-800 mb-1">Funil de Vendas por Etapa</h3>
+            <p className="text-xs text-slate-500 mb-4">Clique na etapa para filtrar o detalhamento</p>
+          </div>
 
-        <div className="flex flex-col items-center gap-2 max-w-2xl mx-auto py-2">
-          {funilCalculado.map((f) => (
-            <div 
-              key={f.label} 
-              onClick={() => { setFiltroEtapa(f.label); setItensVisiveis(10); }}
-              style={{ width: `${f.widthPercent}%` }}
-              className={`bg-gradient-to-r ${f.color} text-white font-bold py-2.5 px-4 rounded-xl shadow-sm cursor-pointer hover:opacity-95 transition flex justify-between items-center text-xs md:text-sm`}
-            >
-              <span>{f.label}</span>
-              <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-xs font-extrabold">
-                {f.count}
-              </span>
-            </div>
-          ))}
+          <div className="flex flex-col items-center gap-1.5 my-auto">
+            {funilCalculado.map((f) => (
+              <div 
+                key={f.label} 
+                onClick={() => { setFiltroEtapa(f.label); setItensVisiveis(10); }}
+                style={{ width: `${f.widthPercent}%` }}
+                className={`${f.color} text-white font-semibold py-1.5 px-3 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition flex justify-between items-center text-xs`}
+              >
+                <span className="truncate">{f.label}</span>
+                <span className="bg-black/20 px-2 py-0.5 rounded-full text-[11px] font-extrabold ml-2">
+                  {f.count}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Seção de Gráficos Secundários */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores</h3>
+        {/* Ranking de Vendedores */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="text-base font-extrabold text-slate-800 mb-1">Ranking de Vendedores</h3>
+          <p className="text-xs text-slate-500 mb-4">Volume total de contas por consultor</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rankingVendedoresData} layout="vertical" margin={{ left: 10, right: 10 }}>
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 11 }} />
+                <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Bar dataKey="total" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
 
+      {/* Gráficos Secundários: Motivos de Perda + Ranking Origem */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda</h3>
-          <p className="text-[10px] text-slate-400 mb-3">*Contas perdidas</p>
+          <p className="text-[10px] text-slate-400 mb-3">*Contas descontinuadas</p>
           <div className="h-56">
             {motivosPerdaData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={motivosPerdaData} layout="vertical" margin={{ left: 10, right: 10 }}>
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 10 }} />
+                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
                   <Tooltip />
                   <Bar dataKey="total" fill="#EF4444" radius={[0, 4, 4, 0]} />
                 </BarChart>
@@ -456,8 +462,8 @@ export default function UserDashboard() {
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem</h3>
-          <div className="h-64">
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem do Lead</h3>
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={origemData}>
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
@@ -470,7 +476,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabela de Detalhamento */}
+      {/* Tabela de Detalhamento com Expansão */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-base">
