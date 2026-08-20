@@ -37,10 +37,6 @@ export default function AdminDashboard() {
   const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
   const [inputNovaSenha, setInputNovaSenha] = useState('')
 
-  // Credenciais para Login via Usuário e Senha no PUCA
-  const [pucaUsername, setPucaUsername] = useState('')
-  const [pucaPassword, setPucaPassword] = useState('')
-
   // Módulo Retrátil & Estado do Forecast
   const [forecastExpandido, setForecastExpandido] = useState(true)
   const [abaForecast, setAbaForecast] = useState<'incluidos' | 'buscar'>('incluidos')
@@ -103,150 +99,39 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Adaptativa com Fallback de Endpoints e Payloads
-  async function handleSyncPucaUserPass() {
-    let user = pucaUsername.trim()
-    let pass = pucaPassword.trim()
-
-    if (!user) {
-      const uPrompt = prompt('Digite seu Usuário do PUCA CRM:')
-      if (!uPrompt) return
-      user = uPrompt.trim()
-    }
-
-    if (!pass) {
-      const pPrompt = prompt('Digite sua Senha do PUCA CRM:')
-      if (!pPrompt) return
-      pass = pPrompt.trim()
-    }
-
+  // Sincronização via Backend/Adapter Próprio conforme Arquitetura Recomendada
+  async function handleSyncPucaApi() {
     setLoading(true)
-    setStatusMsg('1/3 - Efetuando login no PUCA CRM...')
+    setStatusMsg('Solicitando sincronização ao servidor do PUCA CRM...')
 
     try {
-      const corsProxy = 'https://corsproxy.io/?'
-      const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-base-api/puca-user/system_user/login')
+      const res = await fetch('/api/puca', { method: 'GET' })
+      const json = await res.json()
 
-      // 1. Autenticação no PUCA
-      const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user,
-          password: pass
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setStatusMsg(`Sincronização concluída! ${json.total} registros atualizados.`)
+
+        // Atualiza a tabela local do Supabase
+        await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+        const { error: insertError } = await supabase.from('deals').insert(json.data)
+
+        if (insertError) {
+          throw new Error('Erro ao salvar no banco: ' + insertError.message)
+        }
+
+        await supabase.from('sheet_logs').insert({
+          file_name: 'Integração API PUCA (Backend)',
+          total_records: json.total,
+          updated_by: 'Admin'
         })
-      })
 
-      if (!loginRes.ok) {
-        if (loginRes.status === 403) {
-          throw new Error('Usuário e/ou senha inválido(s) no PUCA CRM.')
-        }
-        throw new Error(`Falha no login do PUCA (Status HTTP ${loginRes.status}).`)
+        await fetchDealsAndForecasts()
+      } else {
+        throw new Error(json.error || 'A API intermediária não retornou os dados de sincronização.')
       }
-
-      let rawToken = await loginRes.text()
-      let token = rawToken.replace(/^"|"$/g, '').trim()
-
-      if (!token || token.length < 20) {
-        throw new Error('Não foi possível extrair a string JWT do PUCA CRM.')
-      }
-
-      setStatusMsg('2/3 - Login ok! Consultando oportunidades do funil...')
-
-      // Endpoints e Estruturas de Payload a testar
-      const endpointsParaTestar = [
-        {
-          url: 'https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find',
-          payloads: [
-            { from: 'user_funil_venda', args: {} },
-            { from: 'user_funil_venda' },
-            {}
-          ]
-        },
-        {
-          url: 'https://lifeapps.puca.app/puca-crm-api/deal/find',
-          payloads: [
-            { from: 'puca_crm_api_deal', args: {} },
-            {}
-          ]
-        }
-      ]
-
-      let rows: any[] | null = null
-
-      for (const itemEndpoint of endpointsParaTestar) {
-        const targetViewUrl = encodeURIComponent(itemEndpoint.url)
-
-        for (const payload of itemEndpoint.payloads) {
-          try {
-            const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
-              method: 'POST',
-              headers: {
-                'Authorization': token,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(payload)
-            })
-
-            if (viewRes.ok) {
-              const rawData = await viewRes.json()
-              const resultado = rawData.data || rawData
-              if (Array.isArray(resultado)) {
-                rows = resultado
-                break
-              }
-            }
-          } catch (e) {
-            // Continua para o próximo payload
-          }
-        }
-        if (rows) break
-      }
-
-      if (!rows || !Array.isArray(rows)) {
-        throw new Error('As rotas da API do PUCA responderam, mas rejeitaram os filtros do perfil. Verifique as permissões de acesso às views no seu usuário do PUCA.')
-      }
-
-      setStatusMsg(`3/3 - Salvando ${rows.length} registros atualizados no B.I....`)
-
-      // 3. Atualização dos Dados no Supabase
-      await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-
-      const dealsToInsert = rows.map((item: any) => {
-        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || item['name'] || '').toString().trim()
-        let statusFinal = 'Aberto'
-        if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
-        else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
-
-        return {
-          cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || item['title'] || 'N/A',
-          vendedor: item['Nome de Usuário'] || item['vendedor'] || item['user_name'] || 'Não Definido',
-          origem: item['Indicação'] || item['origem'] || 'Outros',
-          etapa: rawStatus || 'Inicial',
-          status: statusFinal,
-          motivo_perda: item['Nome.1'] || item['motivo_perda'] || null,
-          data_criacao: item['Data de criação do registro'] ? parseBRDate(item['Data de criação do registro']) || new Date().toISOString() : new Date().toISOString(),
-          data_mudanca_etapa: item['Data de entrada na etapa'] ? parseBRDate(item['Data de entrada na etapa']) : null,
-        }
-      })
-
-      const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
-
-      if (insertError) {
-        throw new Error('Erro ao salvar no Supabase: ' + insertError.message)
-      }
-
-      await supabase.from('sheet_logs').insert({
-        file_name: 'Integração API PUCA (Usuário e Senha)',
-        total_records: dealsToInsert.length,
-        updated_by: user
-      })
-
-      setStatusMsg(`Sucesso total! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
-      await fetchDealsAndForecasts()
-
     } catch (err: any) {
-      setStatusMsg('Aviso na Sincronização: ' + err.message)
+      setStatusMsg('Erro na Sincronização: ' + err.message)
     }
 
     setLoading(false)
@@ -472,43 +357,21 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Gestão da Base de Dados - Integração PUCA CRM */}
+      {/* Gestão da Base de Dados - Integração Oficial via Backend Adapter */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou Login PUCA CRM)</h2>
-        <p className="text-xs text-slate-500 mb-4">Insira o Usuário e Senha do PUCA CRM para sincronizar via API oficial (`puca-base-api`).</p>
+        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (API PUCA CRM)</h2>
+        <p className="text-xs text-slate-500 mb-4">Sincronize a base de dados via API oficial ou por upload de planilha Excel.</p>
         
-        <div className="flex flex-wrap items-end gap-3 mb-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Usuário PUCA</label>
-            <input 
-              type="text" 
-              placeholder="seu.usuario"
-              value={pucaUsername}
-              onChange={(e) => setPucaUsername(e.target.value)}
-              className="p-2 border border-slate-300 rounded-xl text-xs min-w-[160px]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Senha PUCA</label>
-            <input 
-              type="password" 
-              placeholder="••••••••"
-              value={pucaPassword}
-              onChange={(e) => setPucaPassword(e.target.value)}
-              className="p-2 border border-slate-300 rounded-xl text-xs min-w-[160px]"
-            />
-          </div>
-
+        <div className="flex flex-wrap items-center gap-4">
           <button 
-            onClick={handleSyncPucaUserPass}
+            onClick={handleSyncPucaApi}
             disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2 rounded-xl transition text-xs shadow-sm flex items-center gap-2 h-9"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-2"
           >
-            🔄 Sincronizar via Login PUCA
+            🔄 Sincronizar via API PUCA CRM
           </button>
 
-          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl cursor-pointer transition text-xs shadow-sm h-9 flex items-center">
+          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm flex items-center">
             Enviar Planilha Manual (XLS, XLSX)
             <input type="file" accept=".xls,.xlsx,.csv" onChange={handleFileUpload} className="hidden" disabled={loading} />
           </label>
@@ -516,13 +379,13 @@ export default function AdminDashboard() {
           <button 
             onClick={handleClearDatabase}
             disabled={loading}
-            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-4 py-2 rounded-xl transition text-xs border border-rose-200 h-9"
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm border border-rose-200"
           >
             Apagar Banco
           </button>
         </div>
 
-        {statusMsg && <p className="mt-2 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
+        {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
       </div>
 
       {/* Módulo Retrátil do Forecast */}
