@@ -96,6 +96,27 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
+  // PASSO 3: Função disparada pelo botão "Sincronizar via API PUCA CRM"
+  async function handleSyncPuca() {
+    setLoading(true)
+    setStatusMsg('Conectando ao PUCA CRM e buscando oportunidades atualizadas...')
+
+    try {
+      // Invoca a Edge Function criada no Passo 2
+      const { data, error } = await supabase.functions.invoke('puca-sync')
+
+      if (!error && data?.success) {
+        setStatusMsg(`Sucesso! ${data.total} registros sincronizados diretamente do PUCA CRM via API!`)
+        await fetchDealsAndForecasts()
+      } else {
+        setStatusMsg('Aviso na sincronização: ' + (error?.message || data?.error || 'Certifique-se de implantar a Edge Function puca-sync'))
+      }
+    } catch (err: any) {
+      setStatusMsg('Erro de conexão com o servidor: ' + err.message)
+    }
+    setLoading(false)
+  }
+
   // Persistir item do Forecast
   async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, etapa: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
     setSavingForecastId(cliente)
@@ -270,13 +291,9 @@ export default function AdminDashboard() {
     }
   }
 
-  // Lista de Contas Atualmente Incluídas no Forecast
   const listaIncluidosForecast = Object.values(forecastsMap).filter(f => f.incluido_forecast === true)
-
-  // Etapas Permitidas para Seleção no Forecast
   const etapasPermitidasForecast = ['demonstração', 'proposta', 'negociação', 'assinatura']
 
-  // Filtragem Apenas por Oportunidades nas Etapas Permitidas
   const dealsPermitidosForecast = dealsList.filter(d => {
     const etapaLc = (d.etapa || '').toString().toLowerCase()
     const estaNaEtapaValida = etapasPermitidasForecast.some(e => etapaLc.includes(e))
@@ -302,9 +319,39 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Módulo Retrátil Completo do Forecast Comercial */}
+      {/* Bloco de Gestão da Base com Botão de Sincronização da API */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou API)</h2>
+        <p className="text-xs text-slate-500 mb-4">Atualize via arquivo Excel ou diretamente pela integração da API oficial do PUCA CRM.</p>
+        
+        <div className="flex flex-wrap items-center gap-4">
+          {/* BOTÃO DA INTEGRAÇÃO DO PASSO 3 */}
+          <button 
+            onClick={handleSyncPuca}
+            disabled={loading}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-2"
+          >
+            🔄 Sincronizar via API PUCA CRM
+          </button>
+
+          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm">
+            Enviar Planilha Manual (XLS, XLSX, CSV)
+            <input type="file" accept=".xls,.xlsx,.csv" onChange={handleFileUpload} className="hidden" disabled={loading} />
+          </label>
+
+          <button 
+            onClick={handleClearDatabase}
+            disabled={loading}
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-5 py-2.5 rounded-xl transition text-sm border border-rose-200"
+          >
+            Apagar Banco
+          </button>
+        </div>
+        {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
+      </div>
+
+      {/* Módulo Retrátil do Forecast Comercial */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-hidden transition">
-        {/* Cabeçalho Clicável da Sanfona */}
         <div 
           onClick={() => setForecastExpandido(!forecastExpandido)}
           className="p-5 bg-slate-900 text-white flex justify-between items-center cursor-pointer select-none hover:bg-slate-800 transition"
@@ -324,10 +371,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Conteúdo Expansível do Forecast */}
         {forecastExpandido && (
           <div className="p-6">
-            {/* Navegação por Abas */}
             <div className="flex gap-3 mb-6 border-b border-slate-200 pb-3">
               <button 
                 onClick={() => setAbaForecast('incluidos')}
@@ -352,7 +397,6 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* ABA 1: Ver/Editar Contas Selecionadas */}
             {abaForecast === 'incluidos' && (
               <div>
                 {listaIncluidosForecast.length > 0 ? (
@@ -464,7 +508,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* ABA 2: Buscar Oportunidades que estejam nas fases permitidas */}
             {abaForecast === 'buscar' && (
               <div>
                 <div className="mb-4 flex items-center gap-3">
@@ -586,27 +629,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-        <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha)</h2>
-        <p className="text-xs text-slate-500 mb-4">Reenvie o arquivo para popular os indicadores com a estrutura correta.</p>
-        
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer transition text-sm shadow-sm">
-            Adicionar Planilha Nova (XLS, XLSX, CSV)
-            <input type="file" accept=".xls,.xlsx,.csv" onChange={handleFileUpload} className="hidden" disabled={loading} />
-          </label>
-
-          <button 
-            onClick={handleClearDatabase}
-            disabled={loading}
-            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-5 py-2.5 rounded-xl transition text-sm border border-rose-200"
-          >
-            Apagar Planilha do Banco
-          </button>
-        </div>
-        {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
-      </div>
-
+      {/* Gestão de Usuários */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Cadastrar Novo Usuário</h2>
         <p className="text-xs text-slate-500 mb-4">Crie novos acessos para a equipe e defina suas permissões.</p>
