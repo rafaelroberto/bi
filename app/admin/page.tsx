@@ -34,7 +34,10 @@ export default function AdminDashboard() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
-  // Controle do Forecast na Área Admin
+  // Módulo Retrátil & Estado do Forecast
+  const [forecastExpandido, setDropdownForecastExpandido] = useState(true)
+  const [abaForecast, setAbaForecast] = useState<'incluidos' | 'buscar'>('incluidos')
+  
   const [dealsList, setDealsList] = useState<any[]>([])
   const [forecastsMap, setForecastsMap] = useState<Record<string, any>>({})
   const [buscaClienteForecast, setBuscaClienteForecast] = useState('')
@@ -93,7 +96,7 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Atualizar ou Criar Registro de Forecast
+  // Atualizar ou Persistir Seleção de Forecast
   async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
     setSavingForecastId(cliente)
 
@@ -267,7 +270,10 @@ export default function AdminDashboard() {
     }
   }
 
-  // Filtragem de deals na busca do Forecast
+  // Lista de Contas Atualmente Incluídas no Forecast
+  const listaIncluidosForecast = Object.values(forecastsMap).filter(f => f.incluido_forecast === true)
+
+  // Filtragem para Busca de Oportunidades
   const dealsFiltradosForecast = dealsList.filter(d => 
     (d.cliente_razao_social || '').toLowerCase().includes(buscaClienteForecast.toLowerCase()) ||
     (d.vendedor || '').toLowerCase().includes(buscaClienteForecast.toLowerCase())
@@ -282,7 +288,7 @@ export default function AdminDashboard() {
       <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Painel Administrativo - B.I. RMR</h1>
-          <p className="text-xs text-slate-500 font-medium">Gestão da Base, Controle de Usuários e Projeção de Forecast</p>
+          <p className="text-xs text-slate-500 font-medium">Gestão de Base de Dados, Controle de Usuários e Projeção de Forecast</p>
         </div>
         
         <a href="/bi/" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
@@ -290,122 +296,274 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* NOVO RECURSO: Gestão do Forecast Comercial */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
-        <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+      {/* RECURSO RETRÁTIL: Módulo do Forecast Comercial */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-hidden transition">
+        {/* Cabeçalho Clicável do Módulo Retrátil */}
+        <div 
+          onClick={() => setDropdownForecastExpandido(!forecastExpandido)}
+          className="p-5 bg-slate-900 text-white flex justify-between items-center cursor-pointer select-none hover:bg-slate-800 transition"
+        >
           <div>
-            <h2 className="text-base font-bold text-slate-800">Montar Forecast Comercial do Mês</h2>
-            <p className="text-xs text-slate-500">Selecione os clientes negociados, insira os valores de Setup/MRR e a data prevista de fechamento.</p>
+            <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
+              <span>📊 Gestão do Forecast Comercial do Mês</span>
+              <span className="bg-blue-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                {listaIncluidosForecast.length} contas selecionadas
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">Clique aqui para expandir ou recolher este painel de montagem do Forecast</p>
           </div>
 
-          <input 
-            type="text" 
-            placeholder="Buscar conta ou vendedor..."
-            value={buscaClienteForecast}
-            onChange={(e) => setBuscaClienteForecast(e.target.value)}
-            className="p-2 border border-slate-300 rounded-xl text-xs min-w-[240px]"
-          />
+          <div className="text-lg font-bold">
+            {forecastExpandido ? '▲ Recolher' : '▼ Expandir'}
+          </div>
         </div>
 
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase">
-              <th className="p-2.5 text-center">No Forecast?</th>
-              <th className="p-2.5">Cliente (Razão Social)</th>
-              <th className="p-2.5">Vendedor</th>
-              <th className="p-2.5">Valor Setup (R$)</th>
-              <th className="p-2.5">Valor MRR (R$)</th>
-              <th className="p-2.5">Previsão Fechamento</th>
-              <th className="p-2.5 text-center">Ação</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {dealsFiltradosForecast.slice(0, 30).map((deal) => {
-              const forecastObj = forecastsMap[deal.cliente_razao_social] || {}
-              const isIncluido = forecastObj.incluido_forecast ?? false
+        {/* Conteúdo Expansível do Forecast */}
+        {forecastExpandido && (
+          <div className="p-6">
+            {/* Navegação por Abas */}
+            <div className="flex gap-3 mb-6 border-b border-slate-200 pb-3">
+              <button 
+                onClick={() => setAbaForecast('incluidos')}
+                className={`text-xs font-extrabold px-4 py-2 rounded-xl transition ${
+                  abaForecast === 'incluidos' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                1. Contas Selecionadas no Forecast ({listaIncluidosForecast.length})
+              </button>
 
-              return (
-                <tr key={deal.id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-2.5 text-center">
-                    <input 
-                      type="checkbox"
-                      checked={isIncluido}
-                      onChange={(e) => handleSaveForecastItem(
-                        deal.cliente_razao_social, 
-                        deal.vendedor, 
-                        deal.id, 
-                        forecastObj.valor_setup || 0, 
-                        forecastObj.valor_mrr || 0, 
-                        forecastObj.data_previsao || '', 
-                        e.target.checked
-                      )}
-                      className="w-4 h-4 text-blue-600 rounded cursor-pointer"
-                    />
-                  </td>
-                  <td className="p-2.5 font-bold text-slate-800">{deal.cliente_razao_social}</td>
-                  <td className="p-2.5 text-slate-600">{deal.vendedor}</td>
-                  <td className="p-2.5">
-                    <input 
-                      type="number"
-                      placeholder="0,00"
-                      defaultValue={forecastObj.valor_setup || ''}
-                      onBlur={(e) => handleSaveForecastItem(
-                        deal.cliente_razao_social, 
-                        deal.vendedor, 
-                        deal.id, 
-                        parseFloat(e.target.value) || 0, 
-                        forecastObj.valor_mrr || 0, 
-                        forecastObj.data_previsao || '', 
-                        isIncluido
-                      )}
-                      className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </td>
-                  <td className="p-2.5">
-                    <input 
-                      type="number"
-                      placeholder="0,00"
-                      defaultValue={forecastObj.valor_mrr || ''}
-                      onBlur={(e) => handleSaveForecastItem(
-                        deal.cliente_razao_social, 
-                        deal.vendedor, 
-                        deal.id, 
-                        forecastObj.valor_setup || 0, 
-                        parseFloat(e.target.value) || 0, 
-                        forecastObj.data_previsao || '', 
-                        isIncluido
-                      )}
-                      className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </td>
-                  <td className="p-2.5">
-                    <input 
-                      type="date"
-                      defaultValue={forecastObj.data_previsao || ''}
-                      onChange={(e) => handleSaveForecastItem(
-                        deal.cliente_razao_social, 
-                        deal.vendedor, 
-                        deal.id, 
-                        forecastObj.valor_setup || 0, 
-                        forecastObj.valor_mrr || 0, 
-                        e.target.value, 
-                        isIncluido
-                      )}
-                      className="p-1.5 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </td>
-                  <td className="p-2.5 text-center">
-                    {savingForecastId === deal.cliente_razao_social ? (
-                      <span className="text-[10px] text-blue-600 font-bold">Salvação...</span>
-                    ) : (
-                      <span className="text-[10px] text-slate-400">Salvo</span>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              <button 
+                onClick={() => setAbaForecast('buscar')}
+                className={`text-xs font-extrabold px-4 py-2 rounded-xl transition ${
+                  abaForecast === 'buscar' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                2. Buscar e Adicionar Oportunidades da Base
+              </button>
+            </div>
+
+            {/* ABA 1: Ver/Editar Contas Selecionadas */}
+            {abaForecast === 'incluidos' && (
+              <div>
+                {listaIncluidosForecast.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase">
+                          <th className="p-2.5 text-center">Desmarcar / Manter</th>
+                          <th className="p-2.5">Cliente (Razão Social)</th>
+                          <th className="p-2.5">Vendedor</th>
+                          <th className="p-2.5">Valor Setup (R$)</th>
+                          <th className="p-2.5">Valor MRR (R$)</th>
+                          <th className="p-2.5">Previsão Fechamento</th>
+                          <th className="p-2.5 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {listaIncluidosForecast.map((f) => (
+                          <tr key={f.id} className="hover:bg-slate-50/80 transition">
+                            <td className="p-2.5 text-center">
+                              <input 
+                                type="checkbox"
+                                checked={f.incluido_forecast}
+                                onChange={(e) => handleSaveForecastItem(
+                                  f.cliente_razao_social, 
+                                  f.vendedor, 
+                                  f.deal_id, 
+                                  f.valor_setup || 0, 
+                                  f.valor_mrr || 0, 
+                                  f.data_previsao || '', 
+                                  e.target.checked
+                                )}
+                                className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-2.5 font-bold text-slate-800">{f.cliente_razao_social}</td>
+                            <td className="p-2.5 text-slate-600">{f.vendedor}</td>
+                            <td className="p-2.5">
+                              <input 
+                                type="number"
+                                placeholder="0,00"
+                                defaultValue={f.valor_setup || ''}
+                                onBlur={(e) => handleSaveForecastItem(
+                                  f.cliente_razao_social, 
+                                  f.vendedor, 
+                                  f.deal_id, 
+                                  parseFloat(e.target.value) || 0, 
+                                  f.valor_mrr || 0, 
+                                  f.data_previsao || '', 
+                                  f.incluido_forecast
+                                )}
+                                className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs font-semibold"
+                              />
+                            </td>
+                            <td className="p-2.5">
+                              <input 
+                                type="number"
+                                placeholder="0,00"
+                                defaultValue={f.valor_mrr || ''}
+                                onBlur={(e) => handleSaveForecastItem(
+                                  f.cliente_razao_social, 
+                                  f.vendedor, 
+                                  f.deal_id, 
+                                  f.valor_setup || 0, 
+                                  parseFloat(e.target.value) || 0, 
+                                  f.data_previsao || '', 
+                                  f.incluido_forecast
+                                )}
+                                className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs font-semibold"
+                              />
+                            </td>
+                            <td className="p-2.5">
+                              <input 
+                                type="date"
+                                defaultValue={f.data_previsao || ''}
+                                onChange={(e) => handleSaveForecastItem(
+                                  f.cliente_razao_social, 
+                                  f.vendedor, 
+                                  f.deal_id, 
+                                  f.valor_setup || 0, 
+                                  f.valor_mrr || 0, 
+                                  e.target.value, 
+                                  f.incluido_forecast
+                                )}
+                                className="p-1.5 border border-slate-200 rounded-lg text-xs"
+                              />
+                            </td>
+                            <td className="p-2.5 text-center">
+                              {savingForecastId === f.cliente_razao_social ? (
+                                <span className="text-[10px] text-blue-600 font-bold">Salvando...</span>
+                              ) : (
+                                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">No Forecast</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+                    Nenhuma conta selecionada no Forecast ainda. Vá para a aba <strong>"2. Buscar e Adicionar Oportunidades"</strong> para incluir contas.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ABA 2: Buscar e Adicionar Novas Contas da Base */}
+            {abaForecast === 'buscar' && (
+              <div>
+                <div className="mb-4">
+                  <input 
+                    type="text" 
+                    placeholder="Digite a razão social ou nome do vendedor para buscar..."
+                    value={buscaClienteForecast}
+                    onChange={(e) => setBuscaClienteForecast(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium"
+                  />
+                </div>
+
+                <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase sticky top-0 bg-slate-50">
+                        <th className="p-2.5 text-center">Incluir no Forecast</th>
+                        <th className="p-2.5">Cliente (Razão Social)</th>
+                        <th className="p-2.5">Vendedor</th>
+                        <th className="p-2.5">Setup (R$)</th>
+                        <th className="p-2.5">MRR (R$)</th>
+                        <th className="p-2.5">Previsão Fechamento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {dealsFiltradosForecast.slice(0, 40).map((deal) => {
+                        const forecastObj = forecastsMap[deal.cliente_razao_social] || {}
+                        const isIncluido = forecastObj.incluido_forecast ?? false
+
+                        return (
+                          <tr key={deal.id} className="hover:bg-slate-50/80 transition">
+                            <td className="p-2.5 text-center">
+                              <input 
+                                type="checkbox"
+                                checked={isIncluido}
+                                onChange={(e) => handleSaveForecastItem(
+                                  deal.cliente_razao_social, 
+                                  deal.vendedor, 
+                                  deal.id, 
+                                  forecastObj.valor_setup || 0, 
+                                  forecastObj.valor_mrr || 0, 
+                                  forecastObj.data_previsao || '', 
+                                  e.target.checked
+                                )}
+                                className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-2.5 font-bold text-slate-800">{deal.cliente_razao_social}</td>
+                            <td className="p-2.5 text-slate-600">{deal.vendedor}</td>
+                            <td className="p-2.5">
+                              <input 
+                                type="number"
+                                placeholder="0,00"
+                                defaultValue={forecastObj.valor_setup || ''}
+                                onBlur={(e) => handleSaveForecastItem(
+                                  deal.cliente_razao_social, 
+                                  deal.vendedor, 
+                                  deal.id, 
+                                  parseFloat(e.target.value) || 0, 
+                                  forecastObj.valor_mrr || 0, 
+                                  forecastObj.data_previsao || '', 
+                                  isIncluido
+                                )}
+                                className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs"
+                              />
+                            </td>
+                            <td className="p-2.5">
+                              <input 
+                                type="number"
+                                placeholder="0,00"
+                                defaultValue={forecastObj.valor_mrr || ''}
+                                onBlur={(e) => handleSaveForecastItem(
+                                  deal.cliente_razao_social, 
+                                  deal.vendedor, 
+                                  deal.id, 
+                                  forecastObj.valor_setup || 0, 
+                                  parseFloat(e.target.value) || 0, 
+                                  forecastObj.data_previsao || '', 
+                                  isIncluido
+                                )}
+                                className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs"
+                              />
+                            </td>
+                            <td className="p-2.5">
+                              <input 
+                                type="date"
+                                defaultValue={forecastObj.data_previsao || ''}
+                                onChange={(e) => handleSaveForecastItem(
+                                  deal.cliente_razao_social, 
+                                  deal.vendedor, 
+                                  deal.id, 
+                                  forecastObj.valor_setup || 0, 
+                                  forecastObj.valor_mrr || 0, 
+                                  e.target.value, 
+                                  isIncluido
+                                )}
+                                className="p-1.5 border border-slate-200 rounded-lg text-xs"
+                              />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
