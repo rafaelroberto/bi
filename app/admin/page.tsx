@@ -34,9 +34,13 @@ export default function AdminDashboard() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
-  const [changePasswordUserId, setChangePasswordUserId] = useState<string | null>(null)
-  const [newPasswordAdmin, setNewPasswordAdmin] = useState('')
+  // Controle do Forecast na Área Admin
+  const [dealsList, setDealsList] = useState<any[]>([])
+  const [forecastsMap, setForecastsMap] = useState<Record<string, any>>({})
+  const [buscaClienteForecast, setBuscaClienteForecast] = useState('')
+  const [savingForecastId, setSavingForecastId] = useState<string | null>(null)
 
+  // Formulário de Cadastro de Usuário
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
@@ -62,6 +66,7 @@ export default function AdminDashboard() {
       }
 
       await fetchProfiles()
+      await fetchDealsAndForecasts()
       setLoading(false)
     }
 
@@ -69,10 +74,49 @@ export default function AdminDashboard() {
   }, [])
 
   async function fetchProfiles() {
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-    if (!error && data) {
-      setProfiles(data)
+    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+    if (data) setProfiles(data)
+  }
+
+  async function fetchDealsAndForecasts() {
+    const { data: dealsData } = await supabase.from('deals').select('*').order('cliente_razao_social', { ascending: true })
+    const { data: forecastData } = await supabase.from('forecasts').select('*')
+
+    if (dealsData) setDealsList(dealsData)
+
+    const map: Record<string, any> = {}
+    if (forecastData) {
+      forecastData.forEach(f => {
+        map[f.cliente_razao_social] = f
+      })
     }
+    setForecastsMap(map)
+  }
+
+  // Atualizar ou Criar Registro de Forecast
+  async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
+    setSavingForecastId(cliente)
+
+    const payload = {
+      cliente_razao_social: cliente,
+      vendedor: vendedor || 'Não Definido',
+      deal_id: dealId,
+      valor_setup: setupVal || 0,
+      valor_mrr: mrrVal || 0,
+      data_previsao: dataPrev || null,
+      incluido_forecast: incluido
+    }
+
+    const existing = forecastsMap[cliente]
+
+    if (existing) {
+      await supabase.from('forecasts').update(payload).eq('id', existing.id)
+    } else {
+      await supabase.from('forecasts').insert([payload])
+    }
+
+    await fetchDealsAndForecasts()
+    setSavingForecastId(null)
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -127,6 +171,7 @@ export default function AdminDashboard() {
             updated_by: 'Admin',
           })
           setStatusMsg(`Sucesso! ${rows.length} registros importados com sucesso.`)
+          await fetchDealsAndForecasts()
         } else {
           setStatusMsg('Erro ao salvar no banco: ' + error.message)
         }
@@ -144,6 +189,7 @@ export default function AdminDashboard() {
     const { error } = await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
     if (!error) {
       setStatusMsg('Base de dados limpa com sucesso.')
+      await fetchDealsAndForecasts()
     } else {
       setStatusMsg('Erro ao limpar banco: ' + error.message)
     }
@@ -179,22 +225,13 @@ export default function AdminDashboard() {
     }
   }
 
-  // Redefinição de Senha do Usuário
   async function handleUpdatePassword(userEmail: string) {
-    if (!newPasswordAdmin || newPasswordAdmin.length < 6) {
-      alert('A nova senha precisa ter pelo menos 6 caracteres.')
-      return
-    }
-
-    // Envia link de redefinição/atualização de senha direto para o e-mail do usuário
     const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
       redirectTo: 'https://rafaelroberto.github.io/bi/login',
     })
 
     if (!error) {
       alert(`Instrução para redefinir senha enviada para ${userEmail}.`)
-      setChangePasswordUserId(null)
-      setNewPasswordAdmin('')
     } else {
       alert('Erro ao solicitar troca de senha: ' + error.message)
     }
@@ -230,6 +267,12 @@ export default function AdminDashboard() {
     }
   }
 
+  // Filtragem de deals na busca do Forecast
+  const dealsFiltradosForecast = dealsList.filter(d => 
+    (d.cliente_razao_social || '').toLowerCase().includes(buscaClienteForecast.toLowerCase()) ||
+    (d.vendedor || '').toLowerCase().includes(buscaClienteForecast.toLowerCase())
+  )
+
   if (loading) {
     return <div className="p-8 text-center text-slate-600 font-sans">Carregando Painel Administrativo...</div>
   }
@@ -239,12 +282,130 @@ export default function AdminDashboard() {
       <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Painel Administrativo - B.I. RMR</h1>
-          <p className="text-xs text-slate-500 font-medium">Gestão de Base de Dados e Controle de Usuários</p>
+          <p className="text-xs text-slate-500 font-medium">Gestão da Base, Controle de Usuários e Projeção de Forecast</p>
         </div>
         
         <a href="/bi/" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
           ← Voltar ao Dashboard
         </a>
+      </div>
+
+      {/* NOVO RECURSO: Gestão do Forecast Comercial */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">Montar Forecast Comercial do Mês</h2>
+            <p className="text-xs text-slate-500">Selecione os clientes negociados, insira os valores de Setup/MRR e a data prevista de fechamento.</p>
+          </div>
+
+          <input 
+            type="text" 
+            placeholder="Buscar conta ou vendedor..."
+            value={buscaClienteForecast}
+            onChange={(e) => setBuscaClienteForecast(e.target.value)}
+            className="p-2 border border-slate-300 rounded-xl text-xs min-w-[240px]"
+          />
+        </div>
+
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase">
+              <th className="p-2.5 text-center">No Forecast?</th>
+              <th className="p-2.5">Cliente (Razão Social)</th>
+              <th className="p-2.5">Vendedor</th>
+              <th className="p-2.5">Valor Setup (R$)</th>
+              <th className="p-2.5">Valor MRR (R$)</th>
+              <th className="p-2.5">Previsão Fechamento</th>
+              <th className="p-2.5 text-center">Ação</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {dealsFiltradosForecast.slice(0, 30).map((deal) => {
+              const forecastObj = forecastsMap[deal.cliente_razao_social] || {}
+              const isIncluido = forecastObj.incluido_forecast ?? false
+
+              return (
+                <tr key={deal.id} className="hover:bg-slate-50/80 transition">
+                  <td className="p-2.5 text-center">
+                    <input 
+                      type="checkbox"
+                      checked={isIncluido}
+                      onChange={(e) => handleSaveForecastItem(
+                        deal.cliente_razao_social, 
+                        deal.vendedor, 
+                        deal.id, 
+                        forecastObj.valor_setup || 0, 
+                        forecastObj.valor_mrr || 0, 
+                        forecastObj.data_previsao || '', 
+                        e.target.checked
+                      )}
+                      className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                    />
+                  </td>
+                  <td className="p-2.5 font-bold text-slate-800">{deal.cliente_razao_social}</td>
+                  <td className="p-2.5 text-slate-600">{deal.vendedor}</td>
+                  <td className="p-2.5">
+                    <input 
+                      type="number"
+                      placeholder="0,00"
+                      defaultValue={forecastObj.valor_setup || ''}
+                      onBlur={(e) => handleSaveForecastItem(
+                        deal.cliente_razao_social, 
+                        deal.vendedor, 
+                        deal.id, 
+                        parseFloat(e.target.value) || 0, 
+                        forecastObj.valor_mrr || 0, 
+                        forecastObj.data_previsao || '', 
+                        isIncluido
+                      )}
+                      className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </td>
+                  <td className="p-2.5">
+                    <input 
+                      type="number"
+                      placeholder="0,00"
+                      defaultValue={forecastObj.valor_mrr || ''}
+                      onBlur={(e) => handleSaveForecastItem(
+                        deal.cliente_razao_social, 
+                        deal.vendedor, 
+                        deal.id, 
+                        forecastObj.valor_setup || 0, 
+                        parseFloat(e.target.value) || 0, 
+                        forecastObj.data_previsao || '', 
+                        isIncluido
+                      )}
+                      className="w-24 p-1.5 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </td>
+                  <td className="p-2.5">
+                    <input 
+                      type="date"
+                      defaultValue={forecastObj.data_previsao || ''}
+                      onChange={(e) => handleSaveForecastItem(
+                        deal.cliente_razao_social, 
+                        deal.vendedor, 
+                        deal.id, 
+                        forecastObj.valor_setup || 0, 
+                        forecastObj.valor_mrr || 0, 
+                        e.target.value, 
+                        isIncluido
+                      )}
+                      className="p-1.5 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </td>
+                  <td className="p-2.5 text-center">
+                    {savingForecastId === deal.cliente_razao_social ? (
+                      <span className="text-[10px] text-blue-600 font-bold">Salvação...</span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">Salvo</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">

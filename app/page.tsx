@@ -23,8 +23,13 @@ function calcularCicloVenda(dataCriacao: string, status: string, dataMudancaEtap
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
 }
 
+function formatarMoedaBR(valor: number) {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 export default function UserDashboard() {
   const [deals, setDeals] = useState<any[]>([])
+  const [forecastsList, setForecastsList] = useState<any[]>([])
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
@@ -43,7 +48,6 @@ export default function UserDashboard() {
   const [filtroVendedor, setFiltroVendedor] = useState('')
   const [filtroEtapa, setFiltroEtapa] = useState('')
 
-  // Multisseleção de Origem com Campo de Pesquisa Texto
   const [origensSelecionadas, setOrigensSelecionadas] = useState<string[]>([])
   const [buscaOrigemInput, setBuscaOrigemInput] = useState('')
   const [dropdownOrigemAberto, setDropdownOrigemAberto] = useState(false)
@@ -57,6 +61,7 @@ export default function UserDashboard() {
         return
       }
       await fetchDeals()
+      await fetchForecasts()
       await fetchLog()
       setLoading(false)
     }
@@ -76,6 +81,11 @@ export default function UserDashboard() {
   async function fetchDeals() {
     const { data } = await supabase.from('deals').select('*')
     if (data) setDeals(data)
+  }
+
+  async function fetchForecasts() {
+    const { data } = await supabase.from('forecasts').select('*').eq('incluido_forecast', true)
+    if (data) setForecastsList(data)
   }
 
   async function fetchLog() {
@@ -150,6 +160,7 @@ export default function UserDashboard() {
     return matchVendedor && matchOrigem && matchEtapa && matchData
   })
 
+  // Cálculos de KPIs Globais
   const totalCriadas = dealsBaseData.length
   const ganhos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'ganho').length
   const perdidos = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'perdido').length
@@ -161,6 +172,11 @@ export default function UserDashboard() {
   const ganhosList = dealsBaseData.filter(d => (d.status || '').toLowerCase() === 'ganho')
   const totalDiasCiclo = ganhosList.reduce((acc, d) => acc + calcularCicloVenda(d.data_criacao, d.status, d.data_mudanca_etapa), 0)
   const mediaCicloVendas = ganhosList.length > 0 ? Math.round(totalDiasCiclo / ganhosList.length) : 0
+
+  // Cálculos dos Totais do Forecast
+  const totalSetupForecast = forecastsList.reduce((acc, item) => acc + (item.valor_setup || 0), 0)
+  const totalMrrForecast = forecastsList.reduce((acc, item) => acc + (item.valor_mrr || 0), 0)
+  const totalGeralForecast = totalSetupForecast + totalMrrForecast
 
   const dealsFiltrados = dealsBaseData.filter(d => {
     const st = (d.status || '').toLowerCase()
@@ -296,6 +312,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {/* Barra de Filtros */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">Período de Data</label>
@@ -352,7 +369,6 @@ export default function UserDashboard() {
           </select>
         </div>
 
-        {/* Dropdown de Multisseleção de Origem com Busca */}
         <div className="relative" ref={dropdownRef}>
           <label className="block text-xs font-bold text-slate-600 mb-1">Origem (Multisseleção)</label>
           <button 
@@ -431,6 +447,7 @@ export default function UserDashboard() {
         )}
       </div>
 
+      {/* Grid de KPIs Clicáveis */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
         <div 
           onClick={() => toggleKPIFilter('todos')}
@@ -493,6 +510,70 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {/* NOVO RECURSO: Seção do Forecast de Fechamentos do Mês */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900">Projeção de Fechamentos do Mês (Forecast)</h2>
+            <p className="text-xs text-slate-500">Acompanhamento das negociações mapeadas pelo time comercial para o mês vigente</p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-right">
+              <p className="text-[10px] text-slate-500 font-bold uppercase">Total Setup</p>
+              <p className="text-sm font-extrabold text-slate-800">{formatarMoedaBR(totalSetupForecast)}</p>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-right">
+              <p className="text-[10px] text-slate-500 font-bold uppercase">Total MRR</p>
+              <p className="text-sm font-extrabold text-slate-800">{formatarMoedaBR(totalMrrForecast)}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl text-right">
+              <p className="text-[10px] text-blue-600 font-bold uppercase">Total Forecast</p>
+              <p className="text-base font-extrabold text-blue-700">{formatarMoedaBR(totalGeralForecast)}</p>
+            </div>
+          </div>
+        </div>
+
+        {forecastsList.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold uppercase">
+                  <th className="p-2.5">Cliente (Razão Social)</th>
+                  <th className="p-2.5">Vendedor</th>
+                  <th className="p-2.5">Setup Previsto</th>
+                  <th className="p-2.5">MRR Previsto</th>
+                  <th className="p-2.5">Total Contratado</th>
+                  <th className="p-2.5">Previsão Fechamento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {forecastsList.map((f) => {
+                  const subtotal = (f.valor_setup || 0) + (f.valor_mrr || 0)
+                  return (
+                    <tr key={f.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-2.5 font-bold text-slate-800">{f.cliente_razao_social}</td>
+                      <td className="p-2.5 text-slate-600 font-medium">{f.vendedor}</td>
+                      <td className="p-2.5 font-semibold text-slate-700">{formatarMoedaBR(f.valor_setup || 0)}</td>
+                      <td className="p-2.5 font-semibold text-slate-700">{formatarMoedaBR(f.valor_mrr || 0)}</td>
+                      <td className="p-2.5 font-extrabold text-emerald-700">{formatarMoedaBR(subtotal)}</td>
+                      <td className="p-2.5 text-slate-600">
+                        {f.data_previsao ? new Date(f.data_previsao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+            Nenhuma oportunidade selecionada para o Forecast do mês. O Administrador pode incluir contas no painel /admin.
+          </div>
+        )}
+      </div>
+
+      {/* Funil Compacto + Ranking de Vendedores */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
           <div>
@@ -533,6 +614,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {/* Gráficos Secundários */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-1">Motivos de Perda</h3>
@@ -568,6 +650,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {/* Tabela de Detalhamento das Contas */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-800 text-base">
