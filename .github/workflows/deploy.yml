@@ -26,17 +26,16 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Compilar projeto (Build)
         env:
           NEXT_PUBLIC_SUPABASE_URL: "https://lqmuwffifroxlhqcogtt.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk"
-          NEXT_TELEMETRY_DISABLED: 1
-        run: npx next build
+        run: npm run build
 
       - name: Upload dos arquivos estáticos
         uses: actions/upload-pages-artifact@v3
