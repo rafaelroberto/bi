@@ -8,6 +8,9 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Chave API oficial do robô do PUCA CRM
+const PUCA_API_KEY_SECRET = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
+
 function parseBRDate(dateStr: any) {
   if (!dateStr) return null
   const s = dateStr.toString().trim()
@@ -99,37 +102,97 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização via Backend/Adapter Próprio conforme Arquitetura Recomendada
+  // Sincronização Direta da API do PUCA no Painel
   async function handleSyncPucaApi() {
     setLoading(true)
-    setStatusMsg('Solicitando sincronização ao servidor do PUCA CRM...')
+    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
 
     try {
-      const res = await fetch('/api/puca', { method: 'GET' })
-      const json = await res.json()
+      const corsProxy = 'https://corsproxy.io/?'
+      const targetLoginUrl = encodeURIComponent('https://lifeapps.puca.app/puca-user/system_user/login')
+      const targetViewUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/user-table/user_funil_venda/find')
 
-      if (res.ok && json.success && Array.isArray(json.data)) {
-        setStatusMsg(`Sincronização concluída! ${json.total} registros atualizados.`)
+      // 1. Tenta autenticação via login oficial ou usa o token direto do robô
+      let token = PUCA_API_KEY_SECRET
 
-        // Atualiza a tabela local do Supabase
-        await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-
-        const { error: insertError } = await supabase.from('deals').insert(json.data)
-
-        if (insertError) {
-          throw new Error('Erro ao salvar no banco: ' + insertError.message)
-        }
-
-        await supabase.from('sheet_logs').insert({
-          file_name: 'Integração API PUCA (Backend)',
-          total_records: json.total,
-          updated_by: 'Admin'
+      try {
+        const loginRes = await fetch(`${corsProxy}${targetLoginUrl}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: PUCA_API_KEY_SECRET })
         })
 
-        await fetchDealsAndForecasts()
-      } else {
-        throw new Error(json.error || 'A API intermediária não retornou os dados de sincronização.')
+        if (loginRes.ok) {
+          const loginData = await loginRes.json()
+          token = loginData.token || loginData.session_token || loginData.data?.token || PUCA_API_KEY_SECRET
+        }
+      } catch (e) {
+        // Fallback de token direto
       }
+
+      setStatusMsg('2/3 - Consultando dados atualizados da view user_funil_venda...')
+
+      // 2. Consulta à View
+      const viewRes = await fetch(`${corsProxy}${targetViewUrl}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'user_funil_venda'
+        })
+      })
+
+      if (!viewRes.ok) {
+        throw new Error(`Erro ao consultar dados no PUCA CRM (Status ${viewRes.status}).`)
+      }
+
+      const rawData = await viewRes.json()
+      const rows = rawData.data || rawData
+
+      if (!Array.isArray(rows)) {
+        throw new Error('A resposta recebida do PUCA CRM não é um array válido.')
+      }
+
+      setStatusMsg(`3/3 - Salvando ${rows.length} registros atualizados no Supabase...`)
+
+      // 3. Atualização no Supabase
+      await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+      const dealsToInsert = rows.map((item: any) => {
+        const rawStatus = (item['Nome'] || '').toString().trim()
+        let statusFinal = 'Aberto'
+        if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
+        else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
+
+        return {
+          cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
+          vendedor: item['Nome de Usuário'] || 'Não Definido',
+          origem: item['Indicação'] || 'Outros',
+          etapa: rawStatus || 'Inicial',
+          status: statusFinal,
+          motivo_perda: item['Nome.1'] || null,
+          data_criacao: item['Data de criação do registro'] ? parseBRDate(item['Data de criação do registro']) || new Date().toISOString() : new Date().toISOString(),
+          data_mudanca_etapa: item['Data de entrada na etapa'] ? parseBRDate(item['Data de entrada na etapa']) : null,
+        }
+      })
+
+      const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
+
+      if (insertError) {
+        throw new Error('Erro ao salvar no banco Supabase: ' + insertError.message)
+      }
+
+      await supabase.from('sheet_logs').insert({
+        file_name: 'Integração API PUCA (Direta)',
+        total_records: dealsToInsert.length,
+        updated_by: 'Admin'
+      })
+
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente da API do PUCA.`)
+      await fetchDealsAndForecasts()
+
     } catch (err: any) {
       setStatusMsg('Erro na Sincronização: ' + err.message)
     }
@@ -357,10 +420,10 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Gestão da Base de Dados - Integração Oficial via Backend Adapter */}
+      {/* Gestão da Base de Dados */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (API PUCA CRM)</h2>
-        <p className="text-xs text-slate-500 mb-4">Sincronize a base de dados via API oficial ou por upload de planilha Excel.</p>
+        <p className="text-xs text-slate-500 mb-4">Sincronize a base de dados via API oficial do PUCA CRM ou faça upload de planilha Excel.</p>
         
         <div className="flex flex-wrap items-center gap-4">
           <button 
