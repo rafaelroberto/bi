@@ -101,28 +101,36 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Mapeando a View - Flow - 66 - Funil de Vendas
+  // Sincronização Direta com a Tabela puca_flow_api_flow
   async function handleSyncPucaApi() {
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando e conectando à View Flow 66 (Funil de Vendas)...')
+    setStatusMsg('1/3 - Autenticando e conectando à tabela puca_flow_api_flow...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
       const token = PUCA_API_KEY_SECRET
 
-      // Variações do nome da tabela de acordo com a imagem identificada
-      const viewsParaTestar = [
-        'user_view_flow_66_funil_de_vendas',
-        'user_view_flow_66',
-        'user_funil_de_vendas',
-        'user_funil_venda'
+      // Endpoints oficiais para a tabela puca_flow_api_flow
+      const endpointsParaTestar = [
+        {
+          url: 'https://lifeapps.puca.app/puca-flow-api/flow/find',
+          payload: { from: 'puca_flow_api_flow' }
+        },
+        {
+          url: 'https://lifeapps.puca.app/puca-crud-api/user-table/puca_flow_api_flow/find',
+          payload: { from: 'puca_flow_api_flow' }
+        },
+        {
+          url: 'https://lifeapps.puca.app/puca-crud-api/user-table/user_view_flow_66/find',
+          payload: { from: 'user_view_flow_66' }
+        }
       ]
 
       let rows: any[] | null = null
-      let viewSucesso = ''
+      let endpointSucesso = ''
 
-      for (const viewName of viewsParaTestar) {
-        const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${viewName}/find`)
+      for (const item of endpointsParaTestar) {
+        const targetUrl = encodeURIComponent(item.url)
 
         try {
           const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
@@ -131,7 +139,7 @@ export default function AdminDashboard() {
               'Authorization': token,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ from: viewName })
+            body: JSON.stringify(item.payload)
           })
 
           if (viewRes.ok) {
@@ -139,25 +147,25 @@ export default function AdminDashboard() {
             const res = rawData.data || rawData
             if (Array.isArray(res) && res.length > 0) {
               rows = res
-              viewSucesso = viewName
+              endpointSucesso = item.url
               break
             }
           }
         } catch (e) {
-          // Segue para o próximo formato de nome de view
+          // Continua para o próximo endpoint
         }
       }
 
       if (!rows) {
-        throw new Error('A chave de robô está sem permissão de consulta (Find) na tabela "View - Flow - 66 - Funil de Vendas". Acesse Sys -> Integrações -> Robôs no PUCA e ative a permissão dessa view.')
+        throw new Error('Permissão pendente no PUCA CRM. Acesse Sys -> Integrações -> Robôs no PUCA e ative a permissão "Find/Consultar" para a tabela "puca_flow_api_flow" (View Flow 66 - Funil de Vendas).')
       }
 
-      setStatusMsg(`2/3 - Sincronizado com sucesso da view "${viewSucesso}"! Gravando ${rows.length} registros...`)
+      setStatusMsg(`2/3 - Dados recebidos da tabela puca_flow_api_flow! Processando ${rows.length} registros...`)
 
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
-        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || '').toString().trim()
+        const rawStatus = (item['Nome'] || item['etapa'] || item['status'] || item['name'] || '').toString().trim()
         let statusFinal = 'Aberto'
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
@@ -177,16 +185,16 @@ export default function AdminDashboard() {
       const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
 
       if (insertError) {
-        throw new Error('Erro ao salvar dados no Supabase: ' + insertError.message)
+        throw new Error('Erro ao gravar dados no Supabase: ' + insertError.message)
       }
 
       await supabase.from('sheet_logs').insert({
-        file_name: `API PUCA (${viewSucesso})`,
+        file_name: 'API PUCA (puca_flow_api_flow)',
         total_records: dealsToInsert.length,
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso total! ${dealsToInsert.length} oportunidades sincronizadas diretamente da view "${viewSucesso}".`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente da tabela puca_flow_api_flow.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
