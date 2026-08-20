@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
+  PieChart, Pie, Cell 
 } from 'recharts'
 
 const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
@@ -30,6 +30,9 @@ export default function UserDashboard() {
   const [deals, setDeals] = useState<any[]>([])
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [loading, setLoading] = useState(true)
+
+  // Controle de Visualização da Tabela
+  const [itensVisiveis, setItensVisiveis] = useState(10)
 
   // Filtros
   const [filtroData, setFiltroData] = useState('todos')
@@ -70,14 +73,16 @@ export default function UserDashboard() {
     window.location.href = '/bi/login'
   }
 
-  // Filtragem Lógica por Data e Campos
+  // Filtragem Lógica Tolerante
   const dealsFiltrados = deals.filter(d => {
-    // 1. Filtro Vendedor, Origem, Etapa
-    const matchVendedor = filtroVendedor === '' || d.vendedor === filtroVendedor
-    const matchOrigem = filtroOrigem === '' || (d.origem && d.origem.toLowerCase().includes(filtroOrigem.toLowerCase()))
-    const matchEtapa = filtroEtapa === '' || d.etapa === filtroEtapa
+    const vend = (d.vendedor || '').toString().toLowerCase()
+    const orig = (d.origem || '').toString().toLowerCase()
+    const etap = (d.etapa || '').toString().toLowerCase()
 
-    // 2. Filtro Data
+    const matchVendedor = filtroVendedor === '' || vend === filtroVendedor.toLowerCase()
+    const matchOrigem = filtroOrigem === '' || orig.includes(filtroOrigem.toLowerCase())
+    const matchEtapa = filtroEtapa === '' || etap === filtroEtapa.toLowerCase()
+
     if (!d.data_criacao) return matchVendedor && matchOrigem && matchEtapa
     
     const dataCriacao = new Date(d.data_criacao)
@@ -109,28 +114,30 @@ export default function UserDashboard() {
     return matchVendedor && matchOrigem && matchEtapa && matchData
   })
 
-  // KPIs
+  // Cálculo dos KPIs
   const totalCriadas = dealsFiltrados.length
-  const ganhos = dealsFiltrados.filter(d => d.status === 'Ganho').length
-  const perdidos = dealsFiltrados.filter(d => d.status === 'Perdido').length
-  const abertas = dealsFiltrados.filter(d => d.status === 'Aberto').length
-  const taxaConversao = totalCriadas > 0 ? ((ganhos / totalCriadas) * 100).toFixed(1) : '0'
+  const ganhos = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'ganho').length
+  const perdidos = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').length
+  const abertas = dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'aberto').length
 
-  // Dados para Gráfico: Ranking de Vendedores (Ganhos)
+  // Taxa de Conversão
+  const totalEncerradas = ganhos + perdidos
+  const taxaConversao = totalEncerradas > 0 ? ((ganhos / totalEncerradas) * 100).toFixed(1) : (totalCriadas > 0 ? ((ganhos / totalCriadas) * 100).toFixed(1) : '0.0')
+
+  // Dados para Gráficos
   const rankingVendedoresMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const v = d.vendedor || 'Não Definido'
     if (!rankingVendedoresMap[v]) rankingVendedoresMap[v] = 0
-    if (d.status === 'Ganho') rankingVendedoresMap[v] += 1
+    if ((d.status || '').toLowerCase() === 'ganho') rankingVendedoresMap[v] += 1
   })
   const rankingVendedoresData = Object.keys(rankingVendedoresMap).map(k => ({
     name: k,
     ganhos: rankingVendedoresMap[k]
   })).sort((a, b) => b.ganhos - a.ganhos).slice(0, 10)
 
-  // Dados para Gráfico: Motivos de Perda
   const motivosPerdaMap: Record<string, number> = {}
-  dealsFiltrados.filter(d => d.status === 'Perdido').forEach(d => {
+  dealsFiltrados.filter(d => (d.status || '').toLowerCase() === 'perdido').forEach(d => {
     const m = d.motivo_perda || 'Não informado'
     motivosPerdaMap[m] = (motivosPerdaMap[m] || 0) + 1
   })
@@ -139,7 +146,6 @@ export default function UserDashboard() {
     value: motivosPerdaMap[k]
   }))
 
-  // Dados para Gráfico: Ranking de Origem
   const origemMap: Record<string, number> = {}
   dealsFiltrados.forEach(d => {
     const o = d.origem || 'Outros'
@@ -160,7 +166,7 @@ export default function UserDashboard() {
       <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Dashboard RMR - Reunião Mensal de Resultados</h1>
-          <p className="text-xs text-slate-500 font-medium">Análise de Performance Comercial & Indicadores Chave</p>
+          <p className="text-xs text-slate-500 font-medium">Análise de Performance Comercial & Funil de Vendas</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -181,7 +187,7 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Barra de Filtros Completa */}
+      {/* Barra de Filtros */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">Período de Data</label>
@@ -232,7 +238,7 @@ export default function UserDashboard() {
             className="p-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-700 min-w-[150px]"
           >
             <option value="">Todos os Vendedores</option>
-            {Array.from(new Set(deals.map(d => d.vendedor))).map(v => (
+            {Array.from(new Set(deals.map(d => d.vendedor).filter(Boolean))).map(v => (
               <option key={v} value={v}>{v}</option>
             ))}
           </select>
@@ -257,7 +263,7 @@ export default function UserDashboard() {
             className="p-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-700 min-w-[150px]"
           >
             <option value="">Todas as Etapas</option>
-            {Array.from(new Set(deals.map(d => d.etapa))).map(e => (
+            {Array.from(new Set(deals.map(d => d.etapa).filter(Boolean))).map(e => (
               <option key={e} value={e}>{e}</option>
             ))}
           </select>
@@ -300,9 +306,8 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Seção de Gráficos e Rankings */}
+      {/* Gráficos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Gráfico 1: Ranking Vendedores */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking de Vendedores (Ganhos)</h3>
           <div className="h-64">
@@ -317,7 +322,6 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Gráfico 2: Motivos de Perda */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Motivos de Perda</h3>
           <div className="h-64">
@@ -333,12 +337,11 @@ export default function UserDashboard() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-xs text-slate-400 text-center pt-20">Nenhum motivo de perda registrado no filtro atual.</p>
+              <p className="text-xs text-slate-400 text-center pt-20">Nenhum motivo de perda no filtro atual.</p>
             )}
           </div>
         </div>
 
-        {/* Gráfico 3: Ranking de Origem */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Ranking por Origem do Lead</h3>
           <div className="h-64">
@@ -354,9 +357,14 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabela de Detalhamento das Contas */}
+      {/* Tabela com Expansão (10 iniciais) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
-        <h3 className="font-bold text-slate-800 text-base mb-4">Detalhamento das Contas</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold text-slate-800 text-base">
+            Detalhamento das Contas Exibindo {Math.min(itensVisiveis, dealsFiltrados.length)} de {dealsFiltrados.length}
+          </h3>
+        </div>
+
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold text-xs uppercase tracking-wider">
@@ -370,13 +378,13 @@ export default function UserDashboard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {dealsFiltrados.slice(0, 100).map((deal) => (
+            {dealsFiltrados.slice(0, itensVisiveis).map((deal) => (
               <tr key={deal.id} className="hover:bg-slate-50/80 transition">
                 <td className="p-3 font-semibold text-slate-800">{deal.cliente_razao_social}</td>
                 <td className="p-3">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${
-                    deal.status === 'Ganho' ? 'bg-emerald-100 text-emerald-800' :
-                    deal.status === 'Perdido' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                    (deal.status || '').toLowerCase() === 'ganho' ? 'bg-emerald-100 text-emerald-800' :
+                    (deal.status || '').toLowerCase() === 'perdido' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
                   }`}>
                     {deal.status}
                   </span>
@@ -392,6 +400,35 @@ export default function UserDashboard() {
             ))}
           </tbody>
         </table>
+
+        {/* Controles de Expansão */}
+        <div className="mt-6 flex justify-center gap-3">
+          {itensVisiveis < dealsFiltrados.length && (
+            <>
+              <button 
+                onClick={() => setItensVisiveis(prev => prev + 10)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition"
+              >
+                Mostrar +10
+              </button>
+              <button 
+                onClick={() => setItensVisiveis(dealsFiltrados.length)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition"
+              >
+                Mostrar Todos ({dealsFiltrados.length})
+              </button>
+            </>
+          )}
+
+          {itensVisiveis > 10 && (
+            <button 
+              onClick={() => setItensVisiveis(10)}
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-4 py-2 rounded-xl transition border border-rose-200"
+            >
+              Recolher para 10
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
