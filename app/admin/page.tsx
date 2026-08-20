@@ -101,7 +101,33 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Dinâmica: Mapeia as views liberadas no dicionário do PUCA
+  // ALTERAÇÃO DIRETA DE SENHA NO BANCO (SEM E-MAIL)
+  async function handleSaveNewPasswordDirect(userId: string) {
+    if (!inputNovaSenha || inputNovaSenha.length < 6) {
+      alert('A nova senha deve possuir no mínimo 6 caracteres.')
+      return
+    }
+
+    setLoading(true)
+
+    // Tenta executar a função RPC criada no banco
+    const { error } = await supabase.rpc('admin_update_user_password', {
+      user_id: userId,
+      new_password: inputNovaSenha
+    })
+
+    if (!error) {
+      alert('Senha atualizada com sucesso no banco de dados!')
+      setChangingPasswordUserId(null)
+      setInputNovaSenha('')
+    } else {
+      alert('Erro ao atualizar senha no banco: ' + error.message)
+    }
+
+    setLoading(false)
+  }
+
+  // Sincronização Dinâmica da API do PUCA CRM
   async function handleSyncPucaApi() {
     setLoading(true)
     setStatusMsg('1/3 - Consultando o dicionário de tabelas e permissões do PUCA CRM...')
@@ -110,7 +136,6 @@ export default function AdminDashboard() {
       const corsProxy = 'https://corsproxy.io/?'
       const token = PUCA_API_KEY_SECRET
 
-      // Busca a especificação técnica de todas as views acessíveis pelo usuário
       const specUrl = encodeURIComponent('https://lifeapps.puca.app/puca-crud-api/view/crud-especification')
       
       let tabelaAlvo = 'user_funil_venda'
@@ -131,12 +156,9 @@ export default function AdminDashboard() {
           
           if (typeof viewsMap === 'object') {
             tabelasEncontradas = Object.keys(viewsMap)
-            
-            // Tenta encontrar dinamicamente a tabela do funil comercial
             const matchFunil = tabelasEncontradas.find(t => 
               t.includes('funil') || t.includes('venda') || t.includes('crm') || t.includes('deal')
             )
-
             if (matchFunil) {
               tabelaAlvo = matchFunil
             }
@@ -148,7 +170,6 @@ export default function AdminDashboard() {
 
       setStatusMsg(`2/3 - Consultando dados da view "${tabelaAlvo}"...`)
 
-      // Consulta de dados na view identificada
       const targetUrl = encodeURIComponent(`https://lifeapps.puca.app/puca-crud-api/user-table/${tabelaAlvo}/find`)
 
       const viewRes = await fetch(`${corsProxy}${targetUrl}`, {
@@ -349,37 +370,6 @@ export default function AdminDashboard() {
       setNewEmail('')
       setNewPassword('')
       await fetchProfiles()
-    }
-  }
-
-  async function handleSaveNewPasswordDirect(userId: string) {
-    if (!inputNovaSenha || inputNovaSenha.length < 6) {
-      alert('A nova senha deve possuir pelo menos 6 caracteres.')
-      return
-    }
-
-    const { error } = await supabase.auth.admin.updateUserById(userId, {
-      password: inputNovaSenha
-    })
-
-    if (!error) {
-      alert('Senha alterada e atualizada com sucesso!')
-      setChangingPasswordUserId(null)
-      setInputNovaSenha('')
-    } else {
-      const user = profiles.find(p => p.id === userId)
-      if (user?.email) {
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(user.email, {
-          redirectTo: 'https://rafaelroberto.github.io/bi/login'
-        })
-        if (!resetErr) {
-          alert(`Solicitação enviada. Link para definição da nova senha enviado ao e-mail (${user.email}).`)
-        } else {
-          alert('Erro ao alterar senha: ' + resetErr.message)
-        }
-      }
-      setChangingPasswordUserId(null)
-      setInputNovaSenha('')
     }
   }
 
