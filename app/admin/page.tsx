@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // Persistência Corrigida e Atualização Instantânea no Estado
+  // Persistência com Upsert Nativo e Garantia de Gravação
   async function handleSaveForecastItem(
     cliente: string, 
     vendedor: string, 
@@ -127,7 +127,9 @@ export default function AdminDashboard() {
   ) {
     setSavingForecastId(cliente)
 
-    const payload = {
+    const existingObj = forecastsMap[cliente] || {}
+
+    const payload: any = {
       cliente_razao_social: cliente,
       vendedor: vendedor || 'Não Definido',
       deal_id: dealId || null,
@@ -137,28 +139,34 @@ export default function AdminDashboard() {
       incluido_forecast: incluido
     }
 
-    // 1. Atualização Instantânea no Estado Local (Garante funcionamento imediato da UI)
+    if (existingObj.id) {
+      payload.id = existingObj.id
+    }
+
+    // 1. Atualização Instantânea da UI (Optimistic UI)
     setForecastsMap(prev => ({
       ...prev,
       [cliente]: {
-        ...(prev[cliente] || {}),
+        ...existingObj,
         ...payload
       }
     }))
 
-    // 2. Gravando no Banco do Supabase
-    const existing = forecastsMap[cliente]
+    // 2. Gravando de forma garantida no Supabase via Upsert
+    const { data, error } = await supabase
+      .from('forecasts')
+      .upsert(payload, { onConflict: 'cliente_razao_social' })
+      .select()
+      .single()
 
-    if (existing && existing.id) {
-      await supabase.from('forecasts').update(payload).eq('id', existing.id)
-    } else {
-      const { data: inserted } = await supabase.from('forecasts').insert([payload]).select().single()
-      if (inserted) {
-        setForecastsMap(prev => ({
-          ...prev,
-          [cliente]: inserted
-        }))
-      }
+    if (error) {
+      console.error('Erro ao gravar forecast no banco:', error)
+      alert('Erro ao salvar no banco: ' + error.message)
+    } else if (data) {
+      setForecastsMap(prev => ({
+        ...prev,
+        [cliente]: data
+      }))
     }
 
     setSavingForecastId(null)
