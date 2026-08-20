@@ -34,6 +34,10 @@ export default function AdminDashboard() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('user')
 
+  // Estado para Alteração Direta de Senha de Usuários
+  const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
+  const [inputNovaSenha, setInputNovaSenha] = useState('')
+
   // Módulo Retrátil & Estado do Forecast
   const [forecastExpandido, setForecastExpandido] = useState(true)
   const [abaForecast, setAbaForecast] = useState<'incluidos' | 'buscar'>('incluidos')
@@ -96,26 +100,31 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Direta da API do PUCA no Navegador (Garante funcionamento imediato)
-  async function handleSyncPucaDirect() {
-    const apiKey = prompt('Digite sua PUCA_API_KEY para autenticar e sincronizar:')
-    if (!apiKey) return
+  // Sincronização Direta da API do PUCA CRM
+  async function handleSyncPucaAutomatic() {
+    const pucaApiKey = 'COLE_SUA_PUCA_API_KEY_AQUI'
+    const pucaBaseUrl = 'https://lifeapps.puca.app'
+
+    let apiKeyParaUsar = pucaApiKey
+
+    if (!apiKeyParaUsar || apiKeyParaUsar === 'COLE_SUA_PUCA_API_KEY_AQUI') {
+      const solicitada = prompt('Digite sua PUCA_API_KEY para autenticar e sincronizar:')
+      if (!solicitada) return
+      apiKeyParaUsar = solicitada.trim()
+    }
 
     setLoading(true)
     setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
 
     try {
-      const pucaBaseUrl = 'https://lifeapps.puca.app'
-
-      // 1. Autenticação no PUCA
       const loginRes = await fetch(`${pucaBaseUrl}/puca-user/system_user/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'User-Agent': 'curl/8.5.0' },
-        body: JSON.stringify({ api_key: apiKey.trim() })
+        body: JSON.stringify({ api_key: apiKeyParaUsar })
       })
 
       if (!loginRes.ok) {
-        throw new Error('Falha de autenticação no PUCA. Verifique a API Key digitada.')
+        throw new Error('Falha na autenticação do PUCA. Verifique a API Key do robô.')
       }
 
       const loginData = await loginRes.json()
@@ -125,9 +134,8 @@ export default function AdminDashboard() {
         throw new Error('Token de sessão não retornado pelo PUCA.')
       }
 
-      setStatusMsg('2/3 - Consultando oportunidades da view user_funil_venda...')
+      setStatusMsg('2/3 - Consultando dados da view user_funil_venda...')
 
-      // 2. Consulta à View
       const viewRes = await fetch(`${pucaBaseUrl}/puca-crud-api/user-table/user_funil_venda/find`, {
         method: 'POST',
         headers: {
@@ -152,15 +160,14 @@ export default function AdminDashboard() {
       })
 
       if (!viewRes.ok) {
-        throw new Error('Erro ao buscar registros da view user_funil_venda.')
+        throw new Error('Erro ao buscar oportunidades da view user_funil_venda.')
       }
 
       const rawData = await viewRes.json()
       const rows = rawData.data || rawData
 
-      setStatusMsg(`3/3 - Salvando ${rows.length} registros no banco de dados B.I....`)
+      setStatusMsg(`3/3 - Atualizando ${rows.length} registros no banco de dados do B.I....`)
 
-      // 3. Limpa e grava no Supabase
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
       const dealsToInsert = rows.map((item: any) => {
@@ -184,16 +191,16 @@ export default function AdminDashboard() {
       const { error: insertError } = await supabase.from('deals').insert(dealsToInsert)
 
       if (insertError) {
-        throw new Error('Erro ao gravar no Supabase: ' + insertError.message)
+        throw new Error('Erro ao gravar dados no Supabase: ' + insertError.message)
       }
 
       await supabase.from('sheet_logs').insert({
-        file_name: 'Integração API PUCA (Direta)',
+        file_name: 'Integração API PUCA (Automática)',
         total_records: dealsToInsert.length,
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso total! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
@@ -203,7 +210,6 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
-  // Persistir item do Forecast
   async function handleSaveForecastItem(cliente: string, vendedor: string, dealId: string, etapa: string, setupVal: number, mrrVal: number, dataPrev: string, incluido: boolean) {
     setSavingForecastId(cliente)
 
@@ -335,15 +341,37 @@ export default function AdminDashboard() {
     }
   }
 
-  async function handleUpdatePassword(userEmail: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
-      redirectTo: 'https://rafaelroberto.github.io/bi/login',
+  // ALTERAÇÃO DIRETA DE SENHA (ADMIN OU USER)
+  async function handleSaveNewPasswordDirect(userId: string) {
+    if (!inputNovaSenha || inputNovaSenha.length < 6) {
+      alert('A nova senha deve possuir pelo menos 6 caracteres.')
+      return
+    }
+
+    // Tenta atualizar diretamente via Admin API do Supabase Client
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      password: inputNovaSenha
     })
 
     if (!error) {
-      alert(`Instrução para redefinir senha enviada para ${userEmail}.`)
+      alert('Senha alterada e atualizada com sucesso!')
+      setChangingPasswordUserId(null)
+      setInputNovaSenha('')
     } else {
-      alert('Erro ao solicitar troca de senha: ' + error.message)
+      // Se não houver Service Role Key habilitada no frontend, envia o link direto de reset
+      const user = profiles.find(p => p.id === userId)
+      if (user?.email) {
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(user.email, {
+          redirectTo: 'https://rafaelroberto.github.io/bi/login'
+        })
+        if (!resetErr) {
+          alert(`Solicitação enviada. Link para definição da nova senha enviado ao e-mail (${user.email}).`)
+        } else {
+          alert('Erro ao alterar senha: ' + resetErr.message)
+        }
+      }
+      setChangingPasswordUserId(null)
+      setInputNovaSenha('')
     }
   }
 
@@ -405,14 +433,14 @@ export default function AdminDashboard() {
         </a>
       </div>
 
-      {/* Bloco de Gestão da Base com Botão Direto */}
+      {/* Gestão da Base */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Gestão da Base de Dados (Planilha ou API)</h2>
         <p className="text-xs text-slate-500 mb-4">Atualize via arquivo Excel ou diretamente pela integração da API oficial do PUCA CRM.</p>
         
         <div className="flex flex-wrap items-center gap-4">
           <button 
-            onClick={handleSyncPucaDirect}
+            onClick={handleSyncPucaAutomatic}
             disabled={loading}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-2"
           >
@@ -435,7 +463,7 @@ export default function AdminDashboard() {
         {statusMsg && <p className="mt-4 text-xs font-bold text-slate-700 bg-slate-100 p-3 rounded-lg">{statusMsg}</p>}
       </div>
 
-      {/* Módulo Retrátil do Forecast Comercial */}
+      {/* Módulo Retrátil do Forecast */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-hidden transition">
         <div 
           onClick={() => setForecastExpandido(!forecastExpandido)}
@@ -714,7 +742,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Gestão de Usuários */}
+      {/* Cadastro de Usuários */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-1">Cadastrar Novo Usuário</h2>
         <p className="text-xs text-slate-500 mb-4">Crie novos acessos para a equipe e defina suas permissões.</p>
@@ -764,6 +792,7 @@ export default function AdminDashboard() {
         {userMsg && <p className="mt-4 text-xs font-bold text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-200">{userMsg}</p>}
       </div>
 
+      {/* Tabela de Usuários com Alteração de Senha Integrada */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <h2 className="text-base font-bold text-slate-800 mb-4">Usuários Cadastrados ({profiles.length})</h2>
 
@@ -811,12 +840,37 @@ export default function AdminDashboard() {
                 </td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-2 items-center">
-                    <button 
-                      onClick={() => handleUpdatePassword(p.email)}
-                      className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-lg transition border border-amber-200"
-                    >
-                      Resetar Senha
-                    </button>
+                    {/* Campo Direto de Edição de Senha */}
+                    {changingPasswordUserId === p.id ? (
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-300">
+                        <input 
+                          type="password" 
+                          placeholder="Nova senha" 
+                          value={inputNovaSenha}
+                          onChange={(e) => setInputNovaSenha(e.target.value)}
+                          className="p-1 text-xs rounded border border-slate-300 w-28"
+                        />
+                        <button 
+                          onClick={() => handleSaveNewPasswordDirect(p.id)}
+                          className="text-xs bg-emerald-600 text-white font-bold px-2 py-1 rounded hover:bg-emerald-700 transition"
+                        >
+                          Salvar
+                        </button>
+                        <button 
+                          onClick={() => { setChangingPasswordUserId(null); setInputNovaSenha(''); }}
+                          className="text-xs text-slate-500 font-bold px-1 hover:text-slate-800"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => { setChangingPasswordUserId(p.id); setInputNovaSenha(''); }}
+                        className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold px-2.5 py-1 rounded-lg transition border border-amber-200"
+                      >
+                        Alterar Senha
+                      </button>
+                    )}
 
                     <button 
                       onClick={() => { setEditingUserId(p.id); setEditRole(p.role) }}
