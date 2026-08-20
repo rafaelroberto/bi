@@ -8,6 +8,7 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Chave oficial do PUCA CRM restaurada
 const PUCA_API_KEY_SECRET = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzeXN0ZW1fdXNlciI6IjZjNDViMzAyLThmOTgtNDdkNS1iMDliLTI2MDM1YWQyZGE3MCIsInZlcnNpb24iOiIxIiwic2VlZCI6IjIwMjYtMDgtMjBUMTg6MDU6MzUuMTIzWiIsImlhdCI6MTc4NzI0OTEzNX0.NgXCbq9iLBUWVyY06d41BYaKKjWnoOjubbedFAgj-yExT3A26GzjklFkdmIljSELRzW-rtnnw3tNk4ev8ojrvlcIDfzQJeUmvFT_db-BI86noT_r2eaYG1NixMkLDN_-7QEBjwXi-jwUnmlzJMpdXk22CNer3OpJDdFQPCIOkr3XGWEVNh9WORL6To5pwbPlTuRKtqWF-fNrf52HLxlbOG1nNsHhfvksq03RiYCPnEXVkILSrQPOi7w_J_xFEk3Zjzi27bgLodxjjdON4PgupyiatSxB85MhTAkvpcTmpuXpaWQCbUEEaUaEJGvKxM9H9Ev1gEkNjeI4iy90RlUvW5guyH-YeiJ23iFf_L9kY42fyueJomC-s2m-uOpCZZOz9OhD0ru_IL5WIS3uHl-hzELr8zJP22LnjQg5g9F4x'
 
 function parseBRDate(dateStr: any) {
@@ -101,18 +102,17 @@ export default function AdminDashboard() {
     setForecastsMap(map)
   }
 
-  // Sincronização Inteligente com Varredura de Views
+  // Sincronização via API Oficial do PUCA CRM
   async function handleSyncPucaApi() {
     setLoading(true)
-    setStatusMsg('1/3 - Autenticando com a API do PUCA CRM...')
+    setStatusMsg('1/3 - Autenticando com a API oficial do PUCA CRM...')
 
     try {
       const corsProxy = 'https://corsproxy.io/?'
       const token = PUCA_API_KEY_SECRET
 
-      setStatusMsg('2/3 - Buscando permissão nas views do funil comercial no PUCA...')
+      setStatusMsg('2/3 - Consultando dados da view user_funil_venda...')
 
-      // Nomes de views para teste de permissão
       const viewsParaTestar = [
         'user_funil_venda',
         'user_view_funil_venda',
@@ -151,10 +151,10 @@ export default function AdminDashboard() {
       }
 
       if (!rows) {
-        throw new Error('Status 403: A chave de robô foi autenticada, mas o PUCA negou acesso. Habilite a permissão de consulta (Find) para a view "user_funil_venda" no menu Sys -> Integrações -> Robôs do PUCA.')
+        throw new Error('A permissão da chave no PUCA CRM está pendente de liberação. Acesse Sys -> Integrações -> Robôs no PUCA e ative a caixa "Find/Consultar" para a tabela "user_funil_venda".')
       }
 
-      setStatusMsg(`3/3 - Salvando ${rows.length} registros da view "${viewSucesso}" no Supabase...`)
+      setStatusMsg(`3/3 - Salvando ${rows.length} registros no Supabase...`)
 
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente do PUCA CRM.`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
