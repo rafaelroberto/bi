@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // Persistência com Upsert Nativo e Garantia de Gravação
+  // Persistência com Upsert
   async function handleSaveForecastItem(
     cliente: string, 
     vendedor: string, 
@@ -143,7 +143,6 @@ export default function AdminDashboard() {
       payload.id = existingObj.id
     }
 
-    // 1. Atualização Instantânea da UI (Optimistic UI)
     setForecastsMap(prev => ({
       ...prev,
       [cliente]: {
@@ -152,7 +151,6 @@ export default function AdminDashboard() {
       }
     }))
 
-    // 2. Gravando de forma garantida no Supabase via Upsert
     const { data, error } = await supabase
       .from('forecasts')
       .upsert(payload, { onConflict: 'cliente_razao_social' })
@@ -172,7 +170,7 @@ export default function AdminDashboard() {
     setSavingForecastId(null)
   }
 
-  // Sincronização via API PUCA
+  // Sincronização via API PUCA com Captura Estrita do Motivo de Perda (Coluna K)
   async function handleSyncPucaApi() {
     setLoading(true)
     setStatusMsg('1/3 - Autenticando e conectando à tabela puca_flow_api_flow...')
@@ -197,7 +195,6 @@ export default function AdminDashboard() {
       ]
 
       let rows: any[] | null = null
-      let endpointSucesso = ''
 
       for (const item of endpointsParaTestar) {
         const targetUrl = encodeURIComponent(item.url)
@@ -217,12 +214,11 @@ export default function AdminDashboard() {
             const res = rawData.data || rawData
             if (Array.isArray(res) && res.length > 0) {
               rows = res
-              endpointSucesso = item.url
               break
             }
           }
         } catch (e) {
-          // Tenta o próximo endpoint
+          // Segue para o próximo endpoint
         }
       }
 
@@ -230,7 +226,7 @@ export default function AdminDashboard() {
         throw new Error('Permissão pendente no PUCA CRM. Acesse Sys -> Integrações -> Robôs no PUCA e ative a permissão "Find/Consultar" para a tabela "puca_flow_api_flow".')
       }
 
-      setStatusMsg(`2/3 - Dados recebidos da tabela puca_flow_api_flow! Processando ${rows.length} registros...`)
+      setStatusMsg(`2/3 - Dados recebidos! Mapeando colunas e motivos de perda de ${rows.length} registros...`)
 
       await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
@@ -240,13 +236,16 @@ export default function AdminDashboard() {
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
 
+        // Vasculha a resposta da API para encontrar a Coluna K (Motivo de Perda)
+        const motivoCapturado = item['Nome.1'] || item['Motivo de Perda'] || item['motivo_perda'] || item['motivo'] || item['Motivo'] || null
+
         return {
           cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || item['title'] || 'N/A',
           vendedor: item['Nome de Usuário'] || item['vendedor'] || item['user'] || 'Não Definido',
           origem: item['Indicação'] || item['origem'] || 'Outros',
           etapa: rawStatus || 'Inicial',
           status: statusFinal,
-          motivo_perda: item['Nome.1'] || item['motivo_perda'] || null,
+          motivo_perda: motivoCapturado,
           data_criacao: item['Data de criação do registro'] ? parseBRDate(item['Data de criação do registro']) || new Date().toISOString() : new Date().toISOString(),
           data_mudanca_etapa: item['Data de entrada na etapa'] ? parseBRDate(item['Data de entrada na etapa']) : null,
         }
@@ -264,7 +263,7 @@ export default function AdminDashboard() {
         updated_by: 'Admin'
       })
 
-      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas diretamente da tabela puca_flow_api_flow.`)
+      setStatusMsg(`Sucesso! ${dealsToInsert.length} oportunidades sincronizadas com captura dos motivos de perda.`)
       await fetchDealsAndForecasts()
 
     } catch (err: any) {
@@ -274,12 +273,13 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
+  // Upload Manual de Planilha Capturando a Coluna K
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
     setLoading(true)
-    setStatusMsg('Importando planilha...')
+    setStatusMsg('Importando planilha e mapeando a Coluna K (Motivos de Perda)...')
 
     const reader = new FileReader()
     reader.onload = async (evt) => {
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
         await supabase.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
         const rows = data.map((item: any) => {
-          const rawEtapaOuStatus = (item['Nome'] || '').toString().trim()
+          const rawEtapaOuStatus = (item['Nome'] || item['etapa'] || '').toString().trim()
           
           let statusFinal = 'Aberto'
           if (rawEtapaOuStatus.toLowerCase() === 'ganho') {
@@ -305,13 +305,16 @@ export default function AdminDashboard() {
           const dataCriacaoIso = parseBRDate(item['Data de criação do registro']) || new Date().toISOString()
           const dataMudancaIso = parseBRDate(item['Data de entrada na etapa'])
 
+          // Captura estrita da Coluna K (Nome.1 / Motivo de Perda)
+          const motivoCapturado = item['Nome.1'] || item['Motivo de Perda'] || item['motivo_perda'] || item['motivo'] || item['Motivo'] || null
+
           return {
             cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
-            vendedor: item['Nome de Usuário'] || 'Não Definido',
-            origem: item['Indicação'] || 'Outros',
+            vendedor: item['Nome de Usuário'] || item['Vendedor'] || 'Não Definido',
+            origem: item['Indicação'] || item['Origem'] || 'Outros',
             etapa: rawEtapaOuStatus || 'Inicial',
             status: statusFinal,
-            motivo_perda: item['Nome.1'] || null,
+            motivo_perda: motivoCapturado,
             data_criacao: dataCriacaoIso,
             data_mudanca_etapa: dataMudancaIso,
           }
@@ -325,7 +328,7 @@ export default function AdminDashboard() {
             total_records: rows.length,
             updated_by: 'Admin',
           })
-          setStatusMsg(`Sucesso! ${rows.length} registros importados com sucesso.`)
+          setStatusMsg(`Sucesso! ${rows.length} registros importados com captura dos motivos de perda.`)
           await fetchDealsAndForecasts()
         } else {
           setStatusMsg('Erro ao salvar no banco: ' + error.message)
