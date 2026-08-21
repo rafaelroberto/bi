@@ -124,7 +124,6 @@ function MultiSelectDropdown({
   )
 }
 
-// Layout Padrão Inicial
 const defaultLayout = [
   { i: 'card-forecast', x: 0, y: 0, w: 12, h: 6 },
   { i: 'card-evolucao', x: 0, y: 6, w: 6, h: 7 },
@@ -140,30 +139,24 @@ export default function DashboardPage() {
   const [deals, setDeals] = useState<any[]>([])
   const [forecasts, setForecasts] = useState<any[]>([])
 
-  // Estado do Layout Arrastável
   const [layout, setLayout] = useState<any[]>(defaultLayout)
   const [isEditMode, setIsEditMode] = useState(false)
   const [savingLayout, setSavingLayout] = useState(false)
 
-  // Filtros Globais
   const [periodFilter, setPeriodFilter] = useState('este_ano')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
 
-  // Filtros Multi-Seleção
   const [selectedVendedores, setSelectedVendedores] = useState<string[]>([])
   const [selectedOrigens, setSelectedOrigens] = useState<string[]>([])
   const [selectedEtapas, setSelectedEtapas] = useState<string[]>([])
 
-  // Filtro por clique em KPI
   const [statusFilterKpi, setStatusFilterKpi] = useState<string | null>(null)
 
-  // Paginação
   const [origensLimit, setOrigensLimit] = useState<number>(10)
   const [detalhamentoLimit, setDetalhamentoLimit] = useState<number>(10)
   const [buscaDetalhamento, setBuscaDetalhamento] = useState('')
 
-  // Ordenações
   const [vendedorSortField, setVendedorSortField] = useState<string>('criadas')
   const [vendedorSortDir, setVendedorSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -195,6 +188,12 @@ export default function DashboardPage() {
     }
     loadData()
   }, [])
+
+  // Função de Sair / Logoff
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/bi/login'
+  }
 
   async function handleSaveLayout() {
     setSavingLayout(true)
@@ -390,7 +389,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen font-sans">
-      {/* Cabeçalho com Botões de Personalização de Layout */}
+      {/* Cabeçalho */}
       <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Dashboard Comercial - B.I. RMR</h1>
@@ -418,6 +417,14 @@ export default function DashboardPage() {
           <a href="/bi/admin" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
             ⚙️ Painel Admin
           </a>
+
+          {/* Botão Sair / Logoff */}
+          <button
+            onClick={handleLogout}
+            className="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-4 py-2 rounded-xl transition border border-rose-200 shadow-sm"
+          >
+            🚪 Sair
+          </button>
         </div>
       </div>
 
@@ -505,7 +512,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* GRID ARRASTÁVEL E REDIMENSIONÁVEL DOS CARDS (360º) */}
+      {/* Grid Interativo Arrastável dos Cards */}
       <ReactGridLayout
         className="layout"
         layout={layout}
@@ -515,7 +522,6 @@ export default function DashboardPage() {
         isResizable={isEditMode}
         onLayoutChange={(newLayout) => setLayout(newLayout)}
       >
-        {/* CARD: FORECAST */}
         <div key="card-forecast" className="bg-slate-900 text-white p-6 rounded-2xl shadow-sm border border-slate-800 overflow-hidden flex flex-col justify-between">
           <div className="flex flex-wrap justify-between items-center mb-4 gap-4 border-b border-slate-800 pb-3">
             <div>
@@ -568,7 +574,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* CARD: EVOLUÇÃO MENSAL */}
         <div key="card-evolucao" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <h2 className="text-base font-bold text-slate-800 mb-4">Evolução Mensal (Criadas vs Ganhos)</h2>
           <div className="h-40 flex items-end justify-between gap-2 pt-2 border-b border-slate-100 pb-2">
@@ -588,7 +593,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* CARD: FUNIL DE VENDAS */}
         <div key="card-funil" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <h2 className="text-base font-bold text-slate-800 mb-4">Funil de Vendas por Etapa</h2>
           <div className="space-y-3 max-h-48 overflow-y-auto">
@@ -609,7 +613,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* CARD: DESEMPENHO VENDEDORES */}
         <div key="card-vendedores" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <h2 className="text-base font-bold text-slate-800 mb-4">Desempenho por Vendedor</h2>
           <div className="overflow-x-auto max-h-48 overflow-y-auto">
@@ -639,7 +642,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* CARD: ORIGENS */}
         <div key="card-origens" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades</h2>
           <div className="overflow-x-auto max-h-48 overflow-y-auto">
@@ -669,7 +671,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* CARD: MOTIVOS DE PERDA (COLUNA K) */}
         <div key="card-motivos" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda (Coluna K)</h2>
           <div className="space-y-3 max-h-48 overflow-y-auto">
@@ -690,7 +691,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* CARD: DETALHAMENTO GERAL DE CONTAS */}
         <div key="card-detalhamento" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-extrabold text-slate-900">📋 Detalhamento Geral das Oportunidades</h2>
