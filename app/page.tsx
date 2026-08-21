@@ -138,8 +138,10 @@ export default function DashboardPage() {
   // Filtro por clique em KPI
   const [statusFilterKpi, setStatusFilterKpi] = useState<string | null>(null)
 
-  // Paginação Origem
+  // Paginação da Tabela de Origens e da Tabela de Detalhamento
   const [origensLimit, setOrigensLimit] = useState<number>(10)
+  const [detalhamentoLimit, setDetalhamentoLimit] = useState<number>(10)
+  const [buscaDetalhamento, setBuscaDetalhamento] = useState('')
 
   // Estados de Ordenação das Tabelas dos Cards
   const [vendedorSortField, setVendedorSortField] = useState<string>('criadas')
@@ -158,7 +160,7 @@ export default function DashboardPage() {
           ...d,
           vendedor: normalizeName(d.vendedor),
           origem: normalizeName(d.origem),
-          // Fallback robusto para garantir a coluna K / Motivos de Perda
+          // Mapeamento Estrito para Garantir a Coluna K
           motivo_perda: d.motivo_perda || d['Nome.1'] || d['Motivo de Perda'] || d.motivo || null
         }))
         setDeals(dealsNormalizados)
@@ -195,7 +197,7 @@ export default function DashboardPage() {
     return true
   }
 
-  // Opções para Filtros
+  // Opções para os Filtros
   const listaVendedores = Array.from(new Set(deals.map(d => d.vendedor))).filter(Boolean).sort()
   const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean).sort()
   const listaEtapas = Array.from(new Set(deals.map(d => d.etapa))).filter(Boolean).sort()
@@ -283,7 +285,7 @@ export default function DashboardPage() {
 
   const maxEvolucao = Math.max(...evolucaoMensal.map(m => Math.max(m.criadas, m.ganhos)), 1)
 
-  // Mapeamento e Agrupamento por Vendedor
+  // Mapeamento por Vendedor
   const porVendedorMap = dealsFiltrados.reduce((acc: any, d) => {
     const v = d.vendedor
     if (!acc[v]) acc[v] = { nome: v, criadas: 0, ganhos: 0, perdidos: 0 }
@@ -307,7 +309,7 @@ export default function DashboardPage() {
     return 0
   })
 
-  // Mapeamento e Agrupamento por Origem
+  // Mapeamento por Origem
   const porOrigemMap = dealsFiltrados.reduce((acc: any, d) => {
     const o = d.origem
     if (!acc[o]) acc[o] = { nome: o, criadas: 0, ganhos: 0, perdidos: 0 }
@@ -337,12 +339,20 @@ export default function DashboardPage() {
     return acc
   }, {})
 
-  // Captura Completa de Motivos de Perda
+  // Captura Completa de Motivos de Perda (Coluna K)
   const porMotivoPerda = dealsPerdidosNoPeriodo.reduce((acc: any, d) => {
     const m = d.motivo_perda ? normalizeName(d.motivo_perda) : 'Não Informado'
     acc[m] = (acc[m] || 0) + 1
     return acc
   }, {})
+
+  // Lista Filtrada para a Tabela de Detalhamento Geral
+  const listaDetalhamento = dealsFiltrados.filter(d => {
+    const matchBusca = (d.cliente_razao_social || '').toLowerCase().includes(buscaDetalhamento.toLowerCase()) ||
+                       (d.vendedor || '').toLowerCase().includes(buscaDetalhamento.toLowerCase()) ||
+                       (d.origem || '').toLowerCase().includes(buscaDetalhamento.toLowerCase())
+    return matchBusca
+  })
 
   const handleVendedorSort = (field: string) => {
     if (vendedorSortField === field) {
@@ -731,7 +741,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Botões de Expandir Paginação */}
+          {/* Botões de Expandir Paginação Origem */}
           {listaOrigensOrdenadas.length > 10 && (
             <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
               {origensLimit < listaOrigensOrdenadas.length ? (
@@ -763,7 +773,7 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* MOTIVOS DE PERDA DETALHADOS */}
+      {/* MOTIVOS DE PERDA DETALHADOS (COLUNA K) */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
         <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda (Coluna K)</h2>
         <div className="space-y-4">
@@ -786,6 +796,111 @@ export default function DashboardPage() {
               )
             })}
         </div>
+      </div>
+
+      {/* NOVO BLOCO: DETALHAMENTO GERAL DE CONTAS / OPORTUNIDADES */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-base font-extrabold text-slate-900 tracking-tight">📋 Detalhamento Geral das Oportunidades</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Listagem completa das contas com histórico de datas, etapas e motivos de perda</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input 
+              type="text" 
+              placeholder="Pesquisar por cliente, vendedor ou origem..."
+              value={buscaDetalhamento}
+              onChange={(e) => setBuscaDetalhamento(e.target.value)}
+              className="p-2 border border-slate-300 rounded-xl text-xs w-64 shadow-sm"
+            />
+          </div>
+        </div>
+
+        {listaDetalhamento.length > 0 ? (
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold uppercase tracking-wider">
+                    <th className="p-3">Cliente (Razão Social)</th>
+                    <th className="p-3">Data de Criação</th>
+                    <th className="p-3">Origem</th>
+                    <th className="p-3">Vendedor</th>
+                    <th className="p-3">Etapa Atual</th>
+                    <th className="p-3 text-center">Status</th>
+                    <th className="p-3">Fechamento / Mudança Etapa</th>
+                    <th className="p-3">Motivo de Perda (Coluna K)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {listaDetalhamento.slice(0, detalhamentoLimit).map((deal, idx) => (
+                    <tr key={deal.id || idx} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 font-bold text-slate-800">{deal.cliente_razao_social}</td>
+                      <td className="p-3 text-slate-500">
+                        {deal.data_criacao ? new Date(deal.data_criacao).toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                      <td className="p-3 font-semibold text-slate-600">{deal.origem}</td>
+                      <td className="p-3 font-semibold text-slate-700">{deal.vendedor}</td>
+                      <td className="p-3 font-medium text-slate-700">{deal.etapa}</td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                          deal.status === 'Ganho' ? 'bg-emerald-100 text-emerald-800' :
+                          deal.status === 'Perdido' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {deal.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-500">
+                        {deal.data_mudanca_etapa ? new Date(deal.data_mudanca_etapa).toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                      <td className="p-3 text-rose-700 font-medium">
+                        {deal.motivo_perda || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Paginação da Tabela de Detalhamento */}
+            {listaDetalhamento.length > 10 && (
+              <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                <span className="text-xs font-semibold text-slate-400">
+                  Exibindo {Math.min(detalhamentoLimit, listaDetalhamento.length)} de {listaDetalhamento.length} oportunidades
+                </span>
+
+                {detalhamentoLimit < listaDetalhamento.length ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDetalhamentoLimit(prev => prev + 10)}
+                      className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200 transition"
+                    >
+                      + Mostrar mais 10
+                    </button>
+                    <button
+                      onClick={() => setDetalhamentoLimit(listaDetalhamento.length)}
+                      className="text-xs font-bold text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
+                    >
+                      Ver Todos ({listaDetalhamento.length})
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDetalhamentoLimit(10)}
+                    className="text-xs font-bold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
+                  >
+                    ▲ Recolher para Top 10
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+            Nenhuma oportunidade encontrada com o termo pesquisado.
+          </div>
+        )}
       </div>
     </div>
   )
