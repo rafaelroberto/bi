@@ -27,11 +27,9 @@ function parseBRDate(dateStr: any) {
   return null
 }
 
-// Extrator universal da Coluna K (Motivo de Perda)
 function extractMotivoPerda(item: any): string | null {
   if (!item) return null
   
-  // Lista de chaves possíveis onde o Excel ou API armazena a Coluna K
   const keys = [
     'Nome.1', 'Nome_1', 'Nome 1', 
     'Motivo de perda', 'Motivo de Perda', 'Motivo Perda', 'Motivo_de_Perda', 'motivo_perda', 'motivoPerda',
@@ -44,10 +42,9 @@ function extractMotivoPerda(item: any): string | null {
     }
   }
 
-  // Tenta varrer dinamicamente por índice de propriedades se for objeto da planilha
   const allKeys = Object.keys(item)
   if (allKeys.length >= 11) {
-    const colKValue = item[allKeys[10]] // Coluna K e a 11a coluna (indice 10)
+    const colKValue = item[allKeys[10]]
     if (colKValue !== undefined && colKValue !== null && colKValue.toString().trim() !== '') {
       return colKValue.toString().trim()
     }
@@ -110,6 +107,11 @@ export default function AdminDashboard() {
 
     initAdmin()
   }, [])
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/bi/login'
+  }
 
   async function fetchProfiles() {
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
@@ -513,9 +515,19 @@ export default function AdminDashboard() {
           <p className="text-xs text-slate-500 font-medium">Gestão de Base de Dados, Controle de Usuários e Projeção de Forecast</p>
         </div>
         
-        <a href="/bi/" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
-          ← Voltar ao Dashboard
-        </a>
+        <div className="flex gap-2 items-center">
+          <a href="/bi/" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
+            ← Voltar ao Dashboard
+          </a>
+
+          {/* Botão Sair / Logoff Admin */}
+          <button
+            onClick={handleLogout}
+            className="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-4 py-2 rounded-xl transition border border-rose-200 shadow-sm"
+          >
+            🚪 Sair
+          </button>
+        </div>
       </div>
 
       {/* Gestão da Base de Dados */}
