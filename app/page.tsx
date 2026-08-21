@@ -13,11 +13,9 @@ function normalizeName(str: string | null | undefined): string {
   let s = str.toString().trim()
   if (!s) return 'Não Informado'
 
-  // Padronização especial para variações conhecidas (ex: MyLead)
-  const cleanKey = s.toLowerCase().replace(/[^a-z0-0]/g, '')
+  const cleanKey = s.toLowerCase().replace(/[^a-z0-9]/g, '')
   if (cleanKey.includes('mylead')) return 'MyLead'
 
-  // Capitalização padrão (ex: lucas neves -> Lucas Neves)
   return s
     .toLowerCase()
     .split(' ')
@@ -140,8 +138,15 @@ export default function DashboardPage() {
   // Filtro por clique em KPI
   const [statusFilterKpi, setStatusFilterKpi] = useState<string | null>(null)
 
-  // Estado da quantidade visível da tabela de Origens
+  // Paginação Origem
   const [origensLimit, setOrigensLimit] = useState<number>(10)
+
+  // Estados de Ordenação das Tabelas dos Cards
+  const [vendedorSortField, setVendedorSortField] = useState<string>('criadas')
+  const [vendedorSortDir, setVendedorSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const [origemSortField, setOrigemSortField] = useState<string>('criadas')
+  const [origemSortDir, setOrigemSortDir] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
     async function loadData() {
@@ -149,11 +154,12 @@ export default function DashboardPage() {
       const { data: forecastsData } = await supabase.from('forecasts').select('*')
 
       if (dealsData) {
-        // Aplicação de normalização de dados ao carregar
         const dealsNormalizados = dealsData.map(d => ({
           ...d,
           vendedor: normalizeName(d.vendedor),
           origem: normalizeName(d.origem),
+          // Fallback robusto para garantir a coluna K / Motivos de Perda
+          motivo_perda: d.motivo_perda || d['Nome.1'] || d['Motivo de Perda'] || d.motivo || null
         }))
         setDeals(dealsNormalizados)
       }
@@ -189,7 +195,7 @@ export default function DashboardPage() {
     return true
   }
 
-  // Opções para os Filtros
+  // Opções para Filtros
   const listaVendedores = Array.from(new Set(deals.map(d => d.vendedor))).filter(Boolean).sort()
   const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean).sort()
   const listaEtapas = Array.from(new Set(deals.map(d => d.etapa))).filter(Boolean).sort()
@@ -224,7 +230,7 @@ export default function DashboardPage() {
   // 4. ABERTAS NO PERÍODO
   const dealsAbertosNoPeriodo = dealsCriadosNoPeriodo.filter(d => d.status === 'Aberto')
 
-  // 5. TAXA DE CONVERSÃO COHORT / SAFRA
+  // 5. TAXA DE CONVERSÃO SAFRA / COHORT
   const dealsCriadosEFechadosMesmaSafra = dealsCriadosNoPeriodo.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -277,28 +283,53 @@ export default function DashboardPage() {
 
   const maxEvolucao = Math.max(...evolucaoMensal.map(m => Math.max(m.criadas, m.ganhos)), 1)
 
-  // Desempenho por Vendedor (Consolidado)
-  const porVendedor = dealsFiltrados.reduce((acc: any, d) => {
+  // Mapeamento e Agrupamento por Vendedor
+  const porVendedorMap = dealsFiltrados.reduce((acc: any, d) => {
     const v = d.vendedor
-    if (!acc[v]) acc[v] = { criadas: 0, ganhos: 0, perdidos: 0 }
+    if (!acc[v]) acc[v] = { nome: v, criadas: 0, ganhos: 0, perdidos: 0 }
     if (isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[v].criadas++
     if (d.status === 'Ganho' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[v].ganhos++
     if (d.status === 'Perdido' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[v].perdidos++
     return acc
   }, {})
 
-  // Origem das Oportunidades (Consolidado)
-  const porOrigemDetalhado = dealsFiltrados.reduce((acc: any, d) => {
+  const listaVendedoresOrdenados = Object.values(porVendedorMap).sort((a: any, b: any) => {
+    let valA: any = a[vendedorSortField]
+    let valB: any = b[vendedorSortField]
+
+    if (vendedorSortField === 'conversao') {
+      valA = a.criadas > 0 ? (a.ganhos / a.criadas) : 0
+      valB = b.criadas > 0 ? (b.ganhos / b.criadas) : 0
+    }
+
+    if (valA < valB) return vendedorSortDir === 'asc' ? -1 : 1
+    if (valA > valB) return vendedorSortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
+  // Mapeamento e Agrupamento por Origem
+  const porOrigemMap = dealsFiltrados.reduce((acc: any, d) => {
     const o = d.origem
-    if (!acc[o]) acc[o] = { criadas: 0, ganhos: 0, perdidos: 0 }
+    if (!acc[o]) acc[o] = { nome: o, criadas: 0, ganhos: 0, perdidos: 0 }
     if (isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].criadas++
     if (d.status === 'Ganho' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].ganhos++
     if (d.status === 'Perdido' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].perdidos++
     return acc
   }, {})
 
-  const listaOrigensOrdenadas = Object.entries(porOrigemDetalhado)
-    .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
+  const listaOrigensOrdenadas = Object.values(porOrigemMap).sort((a: any, b: any) => {
+    let valA: any = a[origemSortField]
+    let valB: any = b[origemSortField]
+
+    if (origemSortField === 'conversao') {
+      valA = a.criadas > 0 ? (a.ganhos / a.criadas) : 0
+      valB = b.criadas > 0 ? (b.ganhos / b.criadas) : 0
+    }
+
+    if (valA < valB) return origemSortDir === 'asc' ? -1 : 1
+    if (valA > valB) return origemSortDir === 'asc' ? 1 : -1
+    return 0
+  })
 
   const porEtapa = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
     const e = d.etapa || 'Inicial'
@@ -306,11 +337,30 @@ export default function DashboardPage() {
     return acc
   }, {})
 
+  // Captura Completa de Motivos de Perda
   const porMotivoPerda = dealsPerdidosNoPeriodo.reduce((acc: any, d) => {
-    const m = d.motivo_perda || 'Não Informado'
+    const m = d.motivo_perda ? normalizeName(d.motivo_perda) : 'Não Informado'
     acc[m] = (acc[m] || 0) + 1
     return acc
   }, {})
+
+  const handleVendedorSort = (field: string) => {
+    if (vendedorSortField === field) {
+      setVendedorSortDir(vendedorSortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setVendedorSortField(field)
+      setVendedorSortDir('desc')
+    }
+  }
+
+  const handleOrigemSort = (field: string) => {
+    if (origemSortField === field) {
+      setOrigemSortDir(origemSortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setOrigemSortField(field)
+      setOrigemSortDir('desc')
+    }
+  }
 
   const toggleStatusKpi = (status: string | null) => {
     setStatusFilterKpi(statusFilterKpi === status ? null : status)
@@ -405,7 +455,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Cards de KPIs Clicáveis como Filtro */}
+      {/* Cards de KPIs Clicáveis */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
         <div 
           onClick={() => toggleStatusKpi(null)}
@@ -587,7 +637,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BLOCO DE TABELAS COM CONVERSÃO (VENDEDOR E ORIGEM PAGINADA) */}
+      {/* BLOCO DE TABELAS COM ORDENAÇÃO POR COLUNAS (VENDEDOR E ORIGEM) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         
         {/* TABELA: DESEMPENHO POR VENDEDOR */}
@@ -596,35 +646,43 @@ export default function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
-                  <th className="p-2.5">Vendedor</th>
-                  <th className="p-2.5 text-center">Criadas</th>
-                  <th className="p-2.5 text-center">Ganhos</th>
-                  <th className="p-2.5 text-center">Perdidos</th>
-                  <th className="p-2.5 text-center">Conversão</th>
+                <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase select-none">
+                  <th onClick={() => handleVendedorSort('nome')} className="p-2.5 cursor-pointer hover:bg-slate-50">
+                    Vendedor {vendedorSortField === 'nome' ? (vendedorSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                  </th>
+                  <th onClick={() => handleVendedorSort('criadas')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                    Criadas {vendedorSortField === 'criadas' ? (vendedorSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                  </th>
+                  <th onClick={() => handleVendedorSort('ganhos')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                    Ganhos {vendedorSortField === 'ganhos' ? (vendedorSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                  </th>
+                  <th onClick={() => handleVendedorSort('perdidos')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                    Perdidos {vendedorSortField === 'perdidos' ? (vendedorSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                  </th>
+                  <th onClick={() => handleVendedorSort('conversao')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                    Conversão {vendedorSortField === 'conversao' ? (vendedorSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {Object.entries(porVendedor)
-                  .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
-                  .map(([v, val]: any) => {
-                    const convVend = val.criadas > 0 ? ((val.ganhos / val.criadas) * 100).toFixed(1) : '0.0'
-                    return (
-                      <tr key={v} className="hover:bg-slate-50/80 transition">
-                        <td className="p-2.5 font-bold text-slate-800">{v}</td>
-                        <td className="p-2.5 text-center text-slate-600 font-bold">{val.criadas}</td>
-                        <td className="p-2.5 text-center text-emerald-600 font-bold">{val.ganhos}</td>
-                        <td className="p-2.5 text-center text-rose-600 font-bold">{val.perdidos}</td>
-                        <td className="p-2.5 text-center font-extrabold text-blue-600">{convVend}%</td>
-                      </tr>
-                    )
-                  })}
+                {listaVendedoresOrdenados.map((val: any) => {
+                  const convVend = val.criadas > 0 ? ((val.ganhos / val.criadas) * 100).toFixed(1) : '0.0'
+                  return (
+                    <tr key={val.nome} className="hover:bg-slate-50/80 transition">
+                      <td className="p-2.5 font-bold text-slate-800">{val.nome}</td>
+                      <td className="p-2.5 text-center text-slate-600 font-bold">{val.criadas}</td>
+                      <td className="p-2.5 text-center text-emerald-600 font-bold">{val.ganhos}</td>
+                      <td className="p-2.5 text-center text-rose-600 font-bold">{val.perdidos}</td>
+                      <td className="p-2.5 text-center font-extrabold text-blue-600">{convVend}%</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* TABELA COM CONVERSÃO: ORIGEM DAS OPORTUNIDADES (PAGINADA) */}
+        {/* TABELA: ORIGEM DAS OPORTUNIDADES COM ORDENAÇÃO */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-4">
@@ -637,20 +695,30 @@ export default function DashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
-                    <th className="p-2.5">Origem</th>
-                    <th className="p-2.5 text-center">Criadas</th>
-                    <th className="p-2.5 text-center">Ganhos</th>
-                    <th className="p-2.5 text-center">Perdidos</th>
-                    <th className="p-2.5 text-center">Conversão</th>
+                  <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase select-none">
+                    <th onClick={() => handleOrigemSort('nome')} className="p-2.5 cursor-pointer hover:bg-slate-50">
+                      Origem {origemSortField === 'nome' ? (origemSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
+                    <th onClick={() => handleOrigemSort('criadas')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                      Criadas {origemSortField === 'criadas' ? (origemSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
+                    <th onClick={() => handleOrigemSort('ganhos')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                      Ganhos {origemSortField === 'ganhos' ? (origemSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
+                    <th onClick={() => handleOrigemSort('perdidos')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                      Perdidos {origemSortField === 'perdidos' ? (origemSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
+                    <th onClick={() => handleOrigemSort('conversao')} className="p-2.5 text-center cursor-pointer hover:bg-slate-50">
+                      Conversão {origemSortField === 'conversao' ? (origemSortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {listaOrigensOrdenadas.slice(0, origensLimit).map(([o, val]: any) => {
+                  {listaOrigensOrdenadas.slice(0, origensLimit).map((val: any) => {
                     const convOrigem = val.criadas > 0 ? ((val.ganhos / val.criadas) * 100).toFixed(1) : '0.0'
                     return (
-                      <tr key={o} className="hover:bg-slate-50/80 transition">
-                        <td className="p-2.5 font-bold text-slate-800">{o}</td>
+                      <tr key={val.nome} className="hover:bg-slate-50/80 transition">
+                        <td className="p-2.5 font-bold text-slate-800">{val.nome}</td>
                         <td className="p-2.5 text-center text-slate-600 font-bold">{val.criadas}</td>
                         <td className="p-2.5 text-center text-emerald-600 font-bold">{val.ganhos}</td>
                         <td className="p-2.5 text-center text-rose-600 font-bold">{val.perdidos}</td>
@@ -695,9 +763,9 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* MOTIVOS DE PERDA */}
+      {/* MOTIVOS DE PERDA DETALHADOS */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
-        <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda</h2>
+        <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda (Coluna K)</h2>
         <div className="space-y-4">
           {Object.entries(porMotivoPerda)
             .sort((a: any, b: any) => b[1] - a[1])
