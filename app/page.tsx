@@ -51,6 +51,7 @@ export default function DashboardPage() {
     return true
   }
 
+  // Oportunidades Filtradas por Vendedor e Origem
   const dealsFiltrados = deals.filter(d => {
     const matchVendedor = selectedVendedor === 'todos' || d.vendedor === selectedVendedor
     const matchOrigem = selectedOrigem === 'todas' || d.origem === selectedOrigem
@@ -62,7 +63,7 @@ export default function DashboardPage() {
     isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)
   )
 
-  // 2. GANHOS NO PERÍODO (Todo fechamento dentro do filtro)
+  // 2. GANHOS NO PERÍODO (Volume real fechado dentro do filtro de data)
   const dealsGanhosNoPeriodo = dealsFiltrados.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -77,7 +78,8 @@ export default function DashboardPage() {
   // 4. ABERTAS NO PERÍODO
   const dealsAbertosNoPeriodo = dealsCriadosNoPeriodo.filter(d => d.status === 'Aberto')
 
-  // 5. TAXA DE CONVERSÃO AJUSTADA (COHORT / SAFRA)
+  // 5. TAXA DE CONVERSÃO REGRADA (COHORT / SAFRA)
+  // Criadas no período X e Ganhas no mesmo período X
   const dealsCriadosEFechadosMesmaSafra = dealsCriadosNoPeriodo.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -90,7 +92,7 @@ export default function DashboardPage() {
     ? ((totalConvertidasMesmaSafra / totalCriadas) * 100).toFixed(1) 
     : '0.0'
 
-  // Ciclo Médio
+  // Ciclo Médio de Vendas
   const temposFechamento = dealsGanhosNoPeriodo
     .map(d => {
       if (!d.data_criacao || !d.data_mudanca_etapa) return null
@@ -105,7 +107,28 @@ export default function DashboardPage() {
     ? Math.round(temposFechamento.reduce((a, b) => a + b, 0) / temposFechamento.length)
     : 0
 
-  // Desempenho por Vendedor
+  // AGRUPAMENTOS E DADOS DOS GRÁFICOS
+  // 1. Evolução Mensal (Criadas vs Ganhos)
+  const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const evolucaoMensal = mesesNomes.map((mes, idx) => {
+    const criadasNoMes = dealsFiltrados.filter(d => {
+      if (!d.data_criacao) return false
+      const dt = new Date(d.data_criacao)
+      return dt.getMonth() === idx && dt.getFullYear() === new Date().getFullYear()
+    }).length
+
+    const ganhosNoMes = dealsFiltrados.filter(d => {
+      if (d.status !== 'Ganho') return false
+      const dt = new Date(d.data_mudanca_etapa || d.data_criacao)
+      return dt.getMonth() === idx && dt.getFullYear() === new Date().getFullYear()
+    }).length
+
+    return { mes, criadas: criadasNoMes, ganhos: ganhosNoMes }
+  })
+
+  const maxEvolucao = Math.max(...evolucaoMensal.map(m => Math.max(m.criadas, m.ganhos)), 1)
+
+  // 2. Desempenho por Vendedor
   const porVendedor = dealsFiltrados.reduce((acc: any, d) => {
     const v = d.vendedor || 'Não Definido'
     if (!acc[v]) acc[v] = { criadas: 0, ganhos: 0, perdidos: 0 }
@@ -115,21 +138,21 @@ export default function DashboardPage() {
     return acc
   }, {})
 
-  // Desempenho por Origem
+  // 3. Origem das Oportunidades
   const porOrigem = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
-    const o = d.origem || 'Não Informada'
+    const o = d.origem || 'Outros'
     acc[o] = (acc[o] || 0) + 1
     return acc
   }, {})
 
-  // Desempenho por Etapa do Funil
+  // 4. Funil por Etapas
   const porEtapa = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
     const e = d.etapa || 'Inicial'
     acc[e] = (acc[e] || 0) + 1
     return acc
   }, {})
 
-  // Motivos de Perda
+  // 5. Motivos de Perda
   const porMotivoPerda = dealsPerdidosNoPeriodo.reduce((acc: any, d) => {
     const m = d.motivo_perda || 'Não Informado'
     acc[m] = (acc[m] || 0) + 1
@@ -255,38 +278,112 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Grid de Painéis Secundários */}
+      {/* BLOCO DE GRÁFICOS VISUAIS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        {/* Desempenho por Vendedor */}
+        
+        {/* GRÁFICO 1: EVOLUÇÃO TEMPORAL (MÊS A MÊS) */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-base font-bold text-slate-800">Evolução Mensal (Criadas vs Ganhos)</h2>
+            <div className="flex gap-4 text-xs font-bold">
+              <span className="flex items-center gap-1 text-slate-600"><span className="w-3 h-3 bg-blue-500 rounded-sm"></span> Criadas</span>
+              <span className="flex items-center gap-1 text-emerald-600"><span className="w-3 h-3 bg-emerald-500 rounded-sm"></span> Ganhos</span>
+            </div>
+          </div>
+
+          <div className="h-48 flex items-end justify-between gap-2 pt-4 border-b border-slate-100 pb-2">
+            {evolucaoMensal.map((item) => {
+              const heightCriadas = (item.criadas / maxEvolucao) * 100
+              const heightGanhos = (item.ganhos / maxEvolucao) * 100
+
+              return (
+                <div key={item.mes} className="flex-1 flex flex-col items-center h-full justify-end group">
+                  <div className="w-full flex justify-center items-end gap-1 h-full">
+                    {/* Barra Criadas */}
+                    <div 
+                      style={{ height: `${heightCriadas}%` }} 
+                      className="w-2.5 bg-blue-500 rounded-t-sm transition-all group-hover:bg-blue-600 relative"
+                      title={`Criadas em ${item.mes}: ${item.criadas}`}
+                    ></div>
+                    {/* Barra Ganhos */}
+                    <div 
+                      style={{ height: `${heightGanhos}%` }} 
+                      className="w-2.5 bg-emerald-500 rounded-t-sm transition-all group-hover:bg-emerald-600 relative"
+                      title={`Ganhos em ${item.mes}: ${item.ganhos}`}
+                    ></div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 mt-2">{item.mes}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* GRÁFICO 2: FUNIL COMERCIAL VISUAL */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 className="text-base font-bold text-slate-800 mb-6">Funil de Vendas por Etapa</h2>
+          <div className="space-y-4">
+            {Object.entries(porEtapa)
+              .sort((a: any, b: any) => b[1] - a[1])
+              .map(([etapa, count]: any) => {
+                const pct = totalCriadas > 0 ? ((count / totalCriadas) * 100).toFixed(0) : 0
+                return (
+                  <div key={etapa} className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-slate-700">
+                      <span>{etapa}</span>
+                      <span className="text-slate-500">{count} ({pct}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-3 rounded-xl overflow-hidden p-0.5">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-lg transition-all duration-500" 
+                        style={{ width: `${pct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+      </div>
+
+      {/* BLOCO DE TABELAS E MOTIVOS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        
+        {/* TABELA: DESEMPENHO POR VENDEDOR */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm md:col-span-2">
           <h2 className="text-base font-bold text-slate-800 mb-4">Desempenho por Vendedor</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
-                  <th className="p-2">Vendedor</th>
-                  <th className="p-2 text-center">Criadas</th>
-                  <th className="p-2 text-center">Ganhos</th>
-                  <th className="p-2 text-center">Perdidos</th>
+                  <th className="p-2.5">Vendedor</th>
+                  <th className="p-2.5 text-center">Criadas</th>
+                  <th className="p-2.5 text-center">Ganhos</th>
+                  <th className="p-2.5 text-center">Perdidos</th>
+                  <th className="p-2.5 text-center">Conversão</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {Object.entries(porVendedor)
                   .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
-                  .map(([v, val]: any) => (
-                    <tr key={v} className="hover:bg-slate-50">
-                      <td className="p-2 font-semibold text-slate-800">{v}</td>
-                      <td className="p-2 text-center text-slate-600 font-bold">{val.criadas}</td>
-                      <td className="p-2 text-center text-emerald-600 font-bold">{val.ganhos}</td>
-                      <td className="p-2 text-center text-rose-600 font-bold">{val.perdidos}</td>
-                    </tr>
-                ))}
+                  .map(([v, val]: any) => {
+                    const convVend = val.criadas > 0 ? ((val.ganhos / val.criadas) * 100).toFixed(1) : '0.0'
+                    return (
+                      <tr key={v} className="hover:bg-slate-50/80 transition">
+                        <td className="p-2.5 font-bold text-slate-800">{v}</td>
+                        <td className="p-2.5 text-center text-slate-600 font-bold">{val.criadas}</td>
+                        <td className="p-2.5 text-center text-emerald-600 font-bold">{val.ganhos}</td>
+                        <td className="p-2.5 text-center text-rose-600 font-bold">{val.perdidos}</td>
+                        <td className="p-2.5 text-center font-extrabold text-blue-600">{convVend}%</td>
+                      </tr>
+                    )
+                  })}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Motivos de Perda */}
+        {/* MOTIVOS DE PERDA */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda</h2>
           <div className="space-y-4">
@@ -311,54 +408,26 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Origem das Oportunidades */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades</h2>
-          <div className="space-y-3">
-            {Object.entries(porOrigem)
-              .sort((a: any, b: any) => b[1] - a[1])
-              .map(([origem, count]: any) => {
-                const pct = dealsCriadosNoPeriodo.length > 0 
-                  ? ((count / dealsCriadosNoPeriodo.length) * 100).toFixed(0) 
-                  : 0
-                return (
-                  <div key={origem}>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-slate-700">{origem}</span>
-                      <span className="text-slate-500">{count} ({pct}%)</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
-                    </div>
-                  </div>
-                )
-              })}
-          </div>
-        </div>
+      </div>
 
-        {/* Distribuição por Etapas do Funil */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 className="text-base font-bold text-slate-800 mb-4">Volume por Etapa do Funil</h2>
-          <div className="space-y-3">
-            {Object.entries(porEtapa)
-              .sort((a: any, b: any) => b[1] - a[1])
-              .map(([etapa, count]: any) => {
-                const pct = dealsCriadosNoPeriodo.length > 0 
-                  ? ((count / dealsCriadosNoPeriodo.length) * 100).toFixed(0) 
-                  : 0
-                return (
-                  <div key={etapa}>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-slate-700">{etapa}</span>
-                      <span className="text-slate-500">{count} ({pct}%)</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
-                    </div>
+      {/* ORIGEM DAS OPORTUNIDADES */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+        <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Object.entries(porOrigem)
+            .sort((a: any, b: any) => b[1] - a[1])
+            .map(([origem, count]: any) => {
+              const pct = totalCriadas > 0 ? ((count / totalCriadas) * 100).toFixed(0) : 0
+              return (
+                <div key={origem} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="text-xs font-bold text-slate-500">{origem}</p>
+                  <p className="text-xl font-black text-slate-900 mt-1">{count} <span className="text-xs font-medium text-slate-400">({pct}%)</span></p>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${pct}%` }}></div>
                   </div>
-                )
-              })}
-          </div>
+                </div>
+              )
+            })}
         </div>
       </div>
     </div>
