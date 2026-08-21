@@ -7,7 +7,25 @@ const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Componente Customizado para Multi-Seleção com Campo de Pesquisa Interno
+// Função de Normalização para unificar textos similares
+function normalizeName(str: string | null | undefined): string {
+  if (!str) return 'Não Informado'
+  let s = str.toString().trim()
+  if (!s) return 'Não Informado'
+
+  // Padronização especial para variações conhecidas (ex: MyLead)
+  const cleanKey = s.toLowerCase().replace(/[^a-z0-0]/g, '')
+  if (cleanKey.includes('mylead')) return 'MyLead'
+
+  // Capitalização padrão (ex: lucas neves -> Lucas Neves)
+  return s
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 function MultiSelectDropdown({ 
   label, 
   options, 
@@ -119,15 +137,27 @@ export default function DashboardPage() {
   const [selectedOrigens, setSelectedOrigens] = useState<string[]>([])
   const [selectedEtapas, setSelectedEtapas] = useState<string[]>([])
 
-  // Filtro por clique direto em KPI (Ganhos, Perdidos, Abertas, Criadas)
+  // Filtro por clique em KPI
   const [statusFilterKpi, setStatusFilterKpi] = useState<string | null>(null)
+
+  // Estado da quantidade visível da tabela de Origens
+  const [origensLimit, setOrigensLimit] = useState<number>(10)
 
   useEffect(() => {
     async function loadData() {
       const { data: dealsData } = await supabase.from('deals').select('*')
       const { data: forecastsData } = await supabase.from('forecasts').select('*')
 
-      if (dealsData) setDeals(dealsData)
+      if (dealsData) {
+        // Aplicação de normalização de dados ao carregar
+        const dealsNormalizados = dealsData.map(d => ({
+          ...d,
+          vendedor: normalizeName(d.vendedor),
+          origem: normalizeName(d.origem),
+        }))
+        setDeals(dealsNormalizados)
+      }
+
       if (forecastsData) setForecasts(forecastsData)
 
       setLoading(false)
@@ -159,12 +189,12 @@ export default function DashboardPage() {
     return true
   }
 
-  // Listas de Opções para os Filtros
-  const listaVendedores = Array.from(new Set(deals.map(d => d.vendedor))).filter(Boolean)
-  const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean)
-  const listaEtapas = Array.from(new Set(deals.map(d => d.etapa))).filter(Boolean)
+  // Opções para os Filtros
+  const listaVendedores = Array.from(new Set(deals.map(d => d.vendedor))).filter(Boolean).sort()
+  const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean).sort()
+  const listaEtapas = Array.from(new Set(deals.map(d => d.etapa))).filter(Boolean).sort()
 
-  // Oportunidades Filtradas (Multi-seleção + Filtro de KPI Clicado)
+  // Oportunidades Filtradas
   const dealsFiltrados = deals.filter(d => {
     const matchVendedor = selectedVendedores.length === 0 || selectedVendedores.includes(d.vendedor)
     const matchOrigem = selectedOrigens.length === 0 || selectedOrigens.includes(d.origem)
@@ -194,7 +224,7 @@ export default function DashboardPage() {
   // 4. ABERTAS NO PERÍODO
   const dealsAbertosNoPeriodo = dealsCriadosNoPeriodo.filter(d => d.status === 'Aberto')
 
-  // 5. TAXA DE CONVERSÃO REGRADA POR SAFRA/COHORT
+  // 5. TAXA DE CONVERSÃO COHORT / SAFRA
   const dealsCriadosEFechadosMesmaSafra = dealsCriadosNoPeriodo.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -247,9 +277,9 @@ export default function DashboardPage() {
 
   const maxEvolucao = Math.max(...evolucaoMensal.map(m => Math.max(m.criadas, m.ganhos)), 1)
 
-  // Tabela: Desempenho por Vendedor
+  // Desempenho por Vendedor (Consolidado)
   const porVendedor = dealsFiltrados.reduce((acc: any, d) => {
-    const v = d.vendedor || 'Não Definido'
+    const v = d.vendedor
     if (!acc[v]) acc[v] = { criadas: 0, ganhos: 0, perdidos: 0 }
     if (isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[v].criadas++
     if (d.status === 'Ganho' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[v].ganhos++
@@ -257,15 +287,18 @@ export default function DashboardPage() {
     return acc
   }, {})
 
-  // Tabela Detalhada: Origem das Oportunidades com Conversão
+  // Origem das Oportunidades (Consolidado)
   const porOrigemDetalhado = dealsFiltrados.reduce((acc: any, d) => {
-    const o = d.origem || 'Não Informada'
+    const o = d.origem
     if (!acc[o]) acc[o] = { criadas: 0, ganhos: 0, perdidos: 0 }
     if (isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].criadas++
     if (d.status === 'Ganho' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].ganhos++
     if (d.status === 'Perdido' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].perdidos++
     return acc
   }, {})
+
+  const listaOrigensOrdenadas = Object.entries(porOrigemDetalhado)
+    .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
 
   const porEtapa = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
     const e = d.etapa || 'Inicial'
@@ -554,7 +587,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BLOCO DE TABELAS COM CONVERSÃO (VENDEDOR E ORIGEM) */}
+      {/* BLOCO DE TABELAS COM CONVERSÃO (VENDEDOR E ORIGEM PAGINADA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         
         {/* TABELA: DESEMPENHO POR VENDEDOR */}
@@ -591,24 +624,29 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* TABELA COM CONVERSÃO: ORIGEM DAS OPORTUNIDADES */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades (com Conversão)</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
-                  <th className="p-2.5">Origem</th>
-                  <th className="p-2.5 text-center">Criadas</th>
-                  <th className="p-2.5 text-center">Ganhos</th>
-                  <th className="p-2.5 text-center">Perdidos</th>
-                  <th className="p-2.5 text-center">Conversão</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {Object.entries(porOrigemDetalhado)
-                  .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
-                  .map(([o, val]: any) => {
+        {/* TABELA COM CONVERSÃO: ORIGEM DAS OPORTUNIDADES (PAGINADA) */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-bold text-slate-800">Origem das Oportunidades</h2>
+              <span className="text-xs font-semibold text-slate-400">
+                Mostrando {Math.min(origensLimit, listaOrigensOrdenadas.length)} de {listaOrigensOrdenadas.length}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
+                    <th className="p-2.5">Origem</th>
+                    <th className="p-2.5 text-center">Criadas</th>
+                    <th className="p-2.5 text-center">Ganhos</th>
+                    <th className="p-2.5 text-center">Perdidos</th>
+                    <th className="p-2.5 text-center">Conversão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {listaOrigensOrdenadas.slice(0, origensLimit).map(([o, val]: any) => {
                     const convOrigem = val.criadas > 0 ? ((val.ganhos / val.criadas) * 100).toFixed(1) : '0.0'
                     return (
                       <tr key={o} className="hover:bg-slate-50/80 transition">
@@ -620,9 +658,39 @@ export default function DashboardPage() {
                       </tr>
                     )
                   })}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Botões de Expandir Paginação */}
+          {listaOrigensOrdenadas.length > 10 && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
+              {origensLimit < listaOrigensOrdenadas.length ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setOrigensLimit(prev => prev + 10)}
+                    className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200 transition"
+                  >
+                    + Mostrar mais 10
+                  </button>
+                  <button
+                    onClick={() => setOrigensLimit(listaOrigensOrdenadas.length)}
+                    className="text-xs font-bold text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
+                  >
+                    Ver Todos ({listaOrigensOrdenadas.length})
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setOrigensLimit(10)}
+                  className="text-xs font-bold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition"
+                >
+                  ▲ Recolher para Top 10
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       </div>
