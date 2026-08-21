@@ -27,6 +27,35 @@ function parseBRDate(dateStr: any) {
   return null
 }
 
+// Extrator universal da Coluna K (Motivo de Perda)
+function extractMotivoPerda(item: any): string | null {
+  if (!item) return null
+  
+  // Lista de chaves possíveis onde o Excel ou API armazena a Coluna K
+  const keys = [
+    'Nome.1', 'Nome_1', 'Nome 1', 
+    'Motivo de perda', 'Motivo de Perda', 'Motivo Perda', 'Motivo_de_Perda', 'motivo_perda', 'motivoPerda',
+    'Motivo', 'motivo', 'Reason', 'Perda', 'perda', 'Motivo_Perda'
+  ]
+
+  for (const k of keys) {
+    if (item[k] !== undefined && item[k] !== null && item[k].toString().trim() !== '') {
+      return item[k].toString().trim()
+    }
+  }
+
+  // Tenta varrer dinamicamente por índice de propriedades se for objeto da planilha
+  const allKeys = Object.keys(item)
+  if (allKeys.length >= 11) {
+    const colKValue = item[allKeys[10]] // Coluna K e a 11a coluna (indice 10)
+    if (colKValue !== undefined && colKValue !== null && colKValue.toString().trim() !== '') {
+      return colKValue.toString().trim()
+    }
+  }
+
+  return null
+}
+
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [statusMsg, setStatusMsg] = useState('')
@@ -39,7 +68,6 @@ export default function AdminDashboard() {
   const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
   const [inputNovaSenha, setInputNovaSenha] = useState('')
 
-  // Módulo Retrátil & Estado do Forecast
   const [forecastExpandido, setForecastExpandido] = useState(true)
   const [abaForecast, setAbaForecast] = useState<'incluidos' | 'buscar'>('incluidos')
   
@@ -48,11 +76,9 @@ export default function AdminDashboard() {
   const [buscaClienteForecast, setBuscaClienteForecast] = useState('')
   const [savingForecastId, setSavingForecastId] = useState<string | null>(null)
 
-  // Estado de Ordenação das Colunas da Tabela
   const [sortField, setSortField] = useState<string>('cliente_razao_social')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
-  // Formulário de Cadastro de Usuário
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newRole, setNewRole] = useState('user')
@@ -114,7 +140,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Persistência com Upsert
   async function handleSaveForecastItem(
     cliente: string, 
     vendedor: string, 
@@ -170,7 +195,6 @@ export default function AdminDashboard() {
     setSavingForecastId(null)
   }
 
-  // Sincronização via API PUCA com Captura Estrita do Motivo de Perda (Coluna K)
   async function handleSyncPucaApi() {
     setLoading(true)
     setStatusMsg('1/3 - Autenticando e conectando à tabela puca_flow_api_flow...')
@@ -218,7 +242,7 @@ export default function AdminDashboard() {
             }
           }
         } catch (e) {
-          // Segue para o próximo endpoint
+          // Segue
         }
       }
 
@@ -236,8 +260,7 @@ export default function AdminDashboard() {
         if (rawStatus.toLowerCase() === 'ganho') statusFinal = 'Ganho'
         else if (rawStatus.toLowerCase() === 'perdido') statusFinal = 'Perdido'
 
-        // Vasculha a resposta da API para encontrar a Coluna K (Motivo de Perda)
-        const motivoCapturado = item['Nome.1'] || item['Motivo de Perda'] || item['motivo_perda'] || item['motivo'] || item['Motivo'] || null
+        const motivoCapturado = extractMotivoPerda(item)
 
         return {
           cliente_razao_social: item['Razão Social'] || item['Título'] || item['cliente'] || item['title'] || 'N/A',
@@ -273,7 +296,6 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
-  // Upload Manual de Planilha Capturando a Coluna K
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -305,8 +327,7 @@ export default function AdminDashboard() {
           const dataCriacaoIso = parseBRDate(item['Data de criação do registro']) || new Date().toISOString()
           const dataMudancaIso = parseBRDate(item['Data de entrada na etapa'])
 
-          // Captura estrita da Coluna K (Nome.1 / Motivo de Perda)
-          const motivoCapturado = item['Nome.1'] || item['Motivo de Perda'] || item['motivo_perda'] || item['motivo'] || item['Motivo'] || null
+          const motivoCapturado = extractMotivoPerda(item)
 
           return {
             cliente_razao_social: item['Razão Social'] || item['Título'] || 'N/A',
@@ -440,7 +461,6 @@ export default function AdminDashboard() {
   const listaIncluidosForecast = Object.values(forecastsMap).filter(f => f.incluido_forecast === true)
   const etapasPermitidasForecast = ['demonstração', 'proposta', 'negociação', 'assinatura']
 
-  // Filtragem e Ordenação dos Dados
   const dealsPermitidosForecast = dealsList
     .filter(d => {
       const etapaLc = (d.etapa || '').toString().toLowerCase()
