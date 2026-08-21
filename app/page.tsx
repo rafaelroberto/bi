@@ -1,23 +1,126 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = 'https://lqmuwffifroxlhqcogtt.supabase.co'
 const supabaseAnonKey = 'sb_publishable_XfqKaavs6bpR9VDoot1XxA_kxeS46pk'
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Componente Customizado para Multi-Seleção com Campo de Pesquisa Interno
+function MultiSelectDropdown({ 
+  label, 
+  options, 
+  selectedValues, 
+  onChange 
+}: { 
+  label: string, 
+  options: string[], 
+  selectedValues: string[], 
+  onChange: (vals: string[]) => void 
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchText] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredOptions = options.filter(opt => 
+    opt.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const toggleOption = (option: string) => {
+    if (selectedValues.includes(option)) {
+      onChange(selectedValues.filter(item => item !== option))
+    } else {
+      onChange([...selectedValues, option])
+    }
+  }
+
+  const selectAll = () => onChange([...options])
+  const clearAll = () => onChange([])
+
+  return (
+    <div className="relative min-w-[180px]" ref={dropdownRef}>
+      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">{label}</label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white flex justify-between items-center shadow-sm text-left truncate"
+      >
+        <span className="truncate">
+          {selectedValues.length === 0 
+            ? `Todas as ${label}s` 
+            : selectedValues.length === options.length 
+              ? `Todas (${options.length})` 
+              : `${selectedValues.length} selecionada(s)`}
+        </span>
+        <span className="ml-2 text-slate-400">▼</span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 mt-1 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2">
+          <input
+            type="text"
+            placeholder={`Pesquisar ${label.toLowerCase()}...`}
+            value={searchTerm}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="w-full p-2 mb-2 border border-slate-200 rounded-lg text-xs"
+          />
+
+          <div className="flex justify-between text-[10px] font-bold px-1 mb-2 text-blue-600 border-b border-slate-100 pb-1">
+            <button type="button" onClick={selectAll} className="hover:underline">Marcar Todos</button>
+            <button type="button" onClick={clearAll} className="hover:underline text-rose-500">Limpar</button>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <label key={option} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={selectedValues.includes(option)}
+                    onChange={() => toggleOption(option)}
+                    className="rounded text-blue-600"
+                  />
+                  <span className="truncate">{option}</span>
+                </label>
+              ))
+            ) : (
+              <p className="text-[11px] text-slate-400 p-2 text-center">Nenhum resultado</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<any[]>([])
   const [forecasts, setForecasts] = useState<any[]>([])
-  
-  // Filtros
+
+  // Filtros Globais
   const [periodFilter, setPeriodFilter] = useState('este_ano')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
-  const [selectedVendedor, setSelectedVendedor] = useState('todos')
-  const [selectedOrigem, setSelectedOrigem] = useState('todas')
+
+  // Filtros Multi-Seleção
+  const [selectedVendedores, setSelectedVendedores] = useState<string[]>([])
+  const [selectedOrigens, setSelectedOrigens] = useState<string[]>([])
+  const [selectedEtapas, setSelectedEtapas] = useState<string[]>([])
+
+  // Filtro por clique direto em KPI (Ganhos, Perdidos, Abertas, Criadas)
+  const [statusFilterKpi, setStatusFilterKpi] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -56,11 +159,19 @@ export default function DashboardPage() {
     return true
   }
 
-  // Oportunidades Filtradas
+  // Listas de Opções para os Filtros
+  const listaVendedores = Array.from(new Set(deals.map(d => d.vendedor))).filter(Boolean)
+  const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean)
+  const listaEtapas = Array.from(new Set(deals.map(d => d.etapa))).filter(Boolean)
+
+  // Oportunidades Filtradas (Multi-seleção + Filtro de KPI Clicado)
   const dealsFiltrados = deals.filter(d => {
-    const matchVendedor = selectedVendedor === 'todos' || d.vendedor === selectedVendedor
-    const matchOrigem = selectedOrigem === 'todas' || d.origem === selectedOrigem
-    return matchVendedor && matchOrigem
+    const matchVendedor = selectedVendedores.length === 0 || selectedVendedores.includes(d.vendedor)
+    const matchOrigem = selectedOrigens.length === 0 || selectedOrigens.includes(d.origem)
+    const matchEtapa = selectedEtapas.length === 0 || selectedEtapas.includes(d.etapa)
+    const matchStatus = statusFilterKpi === null || d.status === statusFilterKpi
+
+    return matchVendedor && matchOrigem && matchEtapa && matchStatus
   })
 
   // 1. CRIADAS NO PERÍODO
@@ -83,7 +194,7 @@ export default function DashboardPage() {
   // 4. ABERTAS NO PERÍODO
   const dealsAbertosNoPeriodo = dealsCriadosNoPeriodo.filter(d => d.status === 'Aberto')
 
-  // 5. TAXA DE CONVERSÃO AJUSTADA (COHORT / SAFRA)
+  // 5. TAXA DE CONVERSÃO REGRADA POR SAFRA/COHORT
   const dealsCriadosEFechadosMesmaSafra = dealsCriadosNoPeriodo.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -111,9 +222,8 @@ export default function DashboardPage() {
     ? Math.round(temposFechamento.reduce((a, b) => a + b, 0) / temposFechamento.length)
     : 0
 
-  // MÓDULO DO FORECAST COMERCIAL
+  // Forecast Comercial
   const forecastIncluidos = forecasts.filter(f => Boolean(f.incluido_forecast))
-  
   const totalSetupForecast = forecastIncluidos.reduce((acc, f) => acc + Number(f.valor_setup || 0), 0)
   const totalMrrForecast = forecastIncluidos.reduce((acc, f) => acc + Number(f.valor_mrr || 0), 0)
 
@@ -137,7 +247,7 @@ export default function DashboardPage() {
 
   const maxEvolucao = Math.max(...evolucaoMensal.map(m => Math.max(m.criadas, m.ganhos)), 1)
 
-  // Agrupamentos
+  // Tabela: Desempenho por Vendedor
   const porVendedor = dealsFiltrados.reduce((acc: any, d) => {
     const v = d.vendedor || 'Não Definido'
     if (!acc[v]) acc[v] = { criadas: 0, ganhos: 0, perdidos: 0 }
@@ -147,9 +257,13 @@ export default function DashboardPage() {
     return acc
   }, {})
 
-  const porOrigem = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
-    const o = d.origem || 'Outros'
-    acc[o] = (acc[o] || 0) + 1
+  // Tabela Detalhada: Origem das Oportunidades com Conversão
+  const porOrigemDetalhado = dealsFiltrados.reduce((acc: any, d) => {
+    const o = d.origem || 'Não Informada'
+    if (!acc[o]) acc[o] = { criadas: 0, ganhos: 0, perdidos: 0 }
+    if (isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].criadas++
+    if (d.status === 'Ganho' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].ganhos++
+    if (d.status === 'Perdido' && isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)) acc[o].perdidos++
     return acc
   }, {})
 
@@ -165,8 +279,9 @@ export default function DashboardPage() {
     return acc
   }, {})
 
-  const listaVendedores = Array.from(new Set(deals.map(d => d.vendedor))).filter(Boolean)
-  const listaOrigens = Array.from(new Set(deals.map(d => d.origem))).filter(Boolean)
+  const toggleStatusKpi = (status: string | null) => {
+    setStatusFilterKpi(statusFilterKpi === status ? null : status)
+  }
 
   if (loading) {
     return <div className="p-8 text-center text-slate-600 font-sans">Carregando Dashboard Comercial...</div>
@@ -186,7 +301,7 @@ export default function DashboardPage() {
         </a>
       </div>
 
-      {/* Barra de Filtros */}
+      {/* Barra de Filtros com Multi-Seleção e Busca */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-center">
         <div>
           <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Período</label>
@@ -226,49 +341,75 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Vendedor</label>
-          <select 
-            value={selectedVendedor} 
-            onChange={(e) => setSelectedVendedor(e.target.value)}
-            className="p-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white"
-          >
-            <option value="todos">Todos os Vendedores</option>
-            {listaVendedores.map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
-        </div>
+        <MultiSelectDropdown 
+          label="Vendedor" 
+          options={listaVendedores} 
+          selectedValues={selectedVendedores} 
+          onChange={setSelectedVendedores} 
+        />
 
-        <div>
-          <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Origem</label>
-          <select 
-            value={selectedOrigem} 
-            onChange={(e) => setSelectedOrigem(e.target.value)}
-            className="p-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white"
+        <MultiSelectDropdown 
+          label="Origem" 
+          options={listaOrigens} 
+          selectedValues={selectedOrigens} 
+          onChange={setSelectedOrigens} 
+        />
+
+        <MultiSelectDropdown 
+          label="Etapa" 
+          options={listaEtapas} 
+          selectedValues={selectedEtapas} 
+          onChange={setSelectedEtapas} 
+        />
+
+        {statusFilterKpi && (
+          <button
+            onClick={() => setStatusFilterKpi(null)}
+            className="mt-4 text-xs font-bold bg-rose-100 text-rose-700 px-3 py-1.5 rounded-xl border border-rose-200"
           >
-            <option value="todas">Todas as Origens</option>
-            {listaOrigens.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
+            ✕ Limpar Filtro ({statusFilterKpi})
+          </button>
+        )}
       </div>
 
-      {/* Cards de KPIs Principais */}
+      {/* Cards de KPIs Clicáveis como Filtro */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div 
+          onClick={() => toggleStatusKpi(null)}
+          className={`p-5 rounded-2xl border transition cursor-pointer select-none shadow-sm ${
+            statusFilterKpi === null ? 'bg-white border-slate-400 ring-2 ring-slate-900/10' : 'bg-white/60 border-slate-200 hover:border-slate-300'
+          }`}
+        >
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Criadas</p>
           <p className="text-2xl font-black text-slate-900 mt-1">{dealsCriadosNoPeriodo.length}</p>
         </div>
 
-        <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 shadow-sm">
+        <div 
+          onClick={() => toggleStatusKpi('Ganho')}
+          className={`p-5 rounded-2xl border transition cursor-pointer select-none shadow-sm ${
+            statusFilterKpi === 'Ganho' ? 'bg-emerald-100 border-emerald-500 ring-2 ring-emerald-500/20' : 'bg-emerald-50/50 border-emerald-100 hover:border-emerald-200'
+          }`}
+        >
           <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Ganhos</p>
           <p className="text-2xl font-black text-emerald-600 mt-1">{dealsGanhosNoPeriodo.length}</p>
         </div>
 
-        <div className="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 shadow-sm">
+        <div 
+          onClick={() => toggleStatusKpi('Perdido')}
+          className={`p-5 rounded-2xl border transition cursor-pointer select-none shadow-sm ${
+            statusFilterKpi === 'Perdido' ? 'bg-rose-100 border-rose-500 ring-2 ring-rose-500/20' : 'bg-rose-50/50 border-rose-100 hover:border-rose-200'
+          }`}
+        >
           <p className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Perdidos</p>
           <p className="text-2xl font-black text-rose-600 mt-1">{dealsPerdidosNoPeriodo.length}</p>
         </div>
 
-        <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 shadow-sm">
+        <div 
+          onClick={() => toggleStatusKpi('Aberto')}
+          className={`p-5 rounded-2xl border transition cursor-pointer select-none shadow-sm ${
+            statusFilterKpi === 'Aberto' ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-500/20' : 'bg-amber-50/50 border-amber-100 hover:border-amber-200'
+          }`}
+        >
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Abertas</p>
           <p className="text-2xl font-black text-amber-600 mt-1">{dealsAbertosNoPeriodo.length}</p>
         </div>
@@ -309,7 +450,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Tabela do Forecast no Dashboard */}
         {forecastIncluidos.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
@@ -351,7 +491,7 @@ export default function DashboardPage() {
       {/* BLOCO DE GRÁFICOS VISUAIS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         
-        {/* GRÁFICO 1: EVOLUÇÃO TEMPORAL (MÊS A MÊS) */}
+        {/* EVOLUÇÃO TEMPORAL */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-base font-bold text-slate-800">Evolução Mensal (Criadas vs Ganhos)</h2>
@@ -387,7 +527,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* GRÁFICO 2: FUNIL COMERCIAL VISUAL */}
+        {/* FUNIL COMERCIAL */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h2 className="text-base font-bold text-slate-800 mb-6">Funil de Vendas por Etapa</h2>
           <div className="space-y-4">
@@ -414,11 +554,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BLOCO DE TABELAS E MOTIVOS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      {/* BLOCO DE TABELAS COM CONVERSÃO (VENDEDOR E ORIGEM) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         
         {/* TABELA: DESEMPENHO POR VENDEDOR */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm md:col-span-2">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h2 className="text-base font-bold text-slate-800 mb-4">Desempenho por Vendedor</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
@@ -451,47 +591,60 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* MOTIVOS DE PERDA */}
+        {/* TABELA COM CONVERSÃO: ORIGEM DAS OPORTUNIDADES */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda</h2>
-          <div className="space-y-4">
-            {Object.entries(porMotivoPerda)
-              .sort((a: any, b: any) => b[1] - a[1])
-              .map(([motivo, count]: any) => {
-                const pct = dealsPerdidosNoPeriodo.length > 0 
-                  ? ((count / dealsPerdidosNoPeriodo.length) * 100).toFixed(0) 
-                  : 0
-                return (
-                  <div key={motivo}>
-                    <div className="flex justify-between text-xs font-semibold mb-1">
-                      <span className="text-slate-700">{motivo}</span>
-                      <span className="text-slate-500">{count} ({pct}%)</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
-                    </div>
-                  </div>
-                )
-              })}
+          <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades (com Conversão)</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
+                  <th className="p-2.5">Origem</th>
+                  <th className="p-2.5 text-center">Criadas</th>
+                  <th className="p-2.5 text-center">Ganhos</th>
+                  <th className="p-2.5 text-center">Perdidos</th>
+                  <th className="p-2.5 text-center">Conversão</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {Object.entries(porOrigemDetalhado)
+                  .sort((a: any, b: any) => b[1].criadas - a[1].criadas)
+                  .map(([o, val]: any) => {
+                    const convOrigem = val.criadas > 0 ? ((val.ganhos / val.criadas) * 100).toFixed(1) : '0.0'
+                    return (
+                      <tr key={o} className="hover:bg-slate-50/80 transition">
+                        <td className="p-2.5 font-bold text-slate-800">{o}</td>
+                        <td className="p-2.5 text-center text-slate-600 font-bold">{val.criadas}</td>
+                        <td className="p-2.5 text-center text-emerald-600 font-bold">{val.ganhos}</td>
+                        <td className="p-2.5 text-center text-rose-600 font-bold">{val.perdidos}</td>
+                        <td className="p-2.5 text-center font-extrabold text-blue-600">{convOrigem}%</td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
           </div>
         </div>
 
       </div>
 
-      {/* ORIGEM DAS OPORTUNIDADES */}
+      {/* MOTIVOS DE PERDA */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
-        <h2 className="text-base font-bold text-slate-800 mb-4">Origem das Oportunidades</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Object.entries(porOrigem)
+        <h2 className="text-base font-bold text-slate-800 mb-4">Principais Motivos de Perda</h2>
+        <div className="space-y-4">
+          {Object.entries(porMotivoPerda)
             .sort((a: any, b: any) => b[1] - a[1])
-            .map(([origem, count]: any) => {
-              const pct = totalCriadas > 0 ? ((count / totalCriadas) * 100).toFixed(0) : 0
+            .map(([motivo, count]: any) => {
+              const pct = dealsPerdidosNoPeriodo.length > 0 
+                ? ((count / dealsPerdidosNoPeriodo.length) * 100).toFixed(0) 
+                : 0
               return (
-                <div key={origem} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-xs font-bold text-slate-500">{origem}</p>
-                  <p className="text-xl font-black text-slate-900 mt-1">{count} <span className="text-xs font-medium text-slate-400">({pct}%)</span></p>
-                  <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-                    <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${pct}%` }}></div>
+                <div key={motivo}>
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="text-slate-700">{motivo}</span>
+                    <span className="text-slate-500">{count} ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${pct}%` }}></div>
                   </div>
                 </div>
               )
