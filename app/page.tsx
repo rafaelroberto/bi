@@ -10,6 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<any[]>([])
+  const [forecasts, setForecasts] = useState<any[]>([])
   
   // Filtros
   const [periodFilter, setPeriodFilter] = useState('este_ano')
@@ -20,8 +21,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadData() {
-      const { data } = await supabase.from('deals').select('*')
-      if (data) setDeals(data)
+      const { data: dealsData } = await supabase.from('deals').select('*')
+      const { data: forecastsData } = await supabase.from('forecasts').select('*')
+
+      if (dealsData) setDeals(dealsData)
+      if (forecastsData) setForecasts(forecastsData)
+
       setLoading(false)
     }
     loadData()
@@ -51,7 +56,7 @@ export default function DashboardPage() {
     return true
   }
 
-  // Oportunidades Filtradas por Vendedor e Origem
+  // Oportunidades Filtradas
   const dealsFiltrados = deals.filter(d => {
     const matchVendedor = selectedVendedor === 'todos' || d.vendedor === selectedVendedor
     const matchOrigem = selectedOrigem === 'todas' || d.origem === selectedOrigem
@@ -63,7 +68,7 @@ export default function DashboardPage() {
     isDateInSelectedPeriod(d.data_criacao, periodFilter, customStartDate, customEndDate)
   )
 
-  // 2. GANHOS NO PERÍODO (Volume real fechado dentro do filtro de data)
+  // 2. GANHOS NO PERÍODO
   const dealsGanhosNoPeriodo = dealsFiltrados.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -78,8 +83,7 @@ export default function DashboardPage() {
   // 4. ABERTAS NO PERÍODO
   const dealsAbertosNoPeriodo = dealsCriadosNoPeriodo.filter(d => d.status === 'Aberto')
 
-  // 5. TAXA DE CONVERSÃO REGRADA (COHORT / SAFRA)
-  // Criadas no período X e Ganhas no mesmo período X
+  // 5. TAXA DE CONVERSÃO AJUSTADA (COHORT / SAFRA)
   const dealsCriadosEFechadosMesmaSafra = dealsCriadosNoPeriodo.filter(d => 
     d.status === 'Ganho' && 
     isDateInSelectedPeriod(d.data_mudanca_etapa || d.data_criacao, periodFilter, customStartDate, customEndDate)
@@ -92,7 +96,7 @@ export default function DashboardPage() {
     ? ((totalConvertidasMesmaSafra / totalCriadas) * 100).toFixed(1) 
     : '0.0'
 
-  // Ciclo Médio de Vendas
+  // Ciclo Médio
   const temposFechamento = dealsGanhosNoPeriodo
     .map(d => {
       if (!d.data_criacao || !d.data_mudanca_etapa) return null
@@ -107,8 +111,13 @@ export default function DashboardPage() {
     ? Math.round(temposFechamento.reduce((a, b) => a + b, 0) / temposFechamento.length)
     : 0
 
-  // AGRUPAMENTOS E DADOS DOS GRÁFICOS
-  // 1. Evolução Mensal (Criadas vs Ganhos)
+  // MÓDULO DO FORECAST COMERCIAL
+  const forecastIncluidos = forecasts.filter(f => Boolean(f.incluido_forecast))
+  
+  const totalSetupForecast = forecastIncluidos.reduce((acc, f) => acc + Number(f.valor_setup || 0), 0)
+  const totalMrrForecast = forecastIncluidos.reduce((acc, f) => acc + Number(f.valor_mrr || 0), 0)
+
+  // Evolução Mensal
   const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
   const evolucaoMensal = mesesNomes.map((mes, idx) => {
     const criadasNoMes = dealsFiltrados.filter(d => {
@@ -128,7 +137,7 @@ export default function DashboardPage() {
 
   const maxEvolucao = Math.max(...evolucaoMensal.map(m => Math.max(m.criadas, m.ganhos)), 1)
 
-  // 2. Desempenho por Vendedor
+  // Agrupamentos
   const porVendedor = dealsFiltrados.reduce((acc: any, d) => {
     const v = d.vendedor || 'Não Definido'
     if (!acc[v]) acc[v] = { criadas: 0, ganhos: 0, perdidos: 0 }
@@ -138,21 +147,18 @@ export default function DashboardPage() {
     return acc
   }, {})
 
-  // 3. Origem das Oportunidades
   const porOrigem = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
     const o = d.origem || 'Outros'
     acc[o] = (acc[o] || 0) + 1
     return acc
   }, {})
 
-  // 4. Funil por Etapas
   const porEtapa = dealsCriadosNoPeriodo.reduce((acc: any, d) => {
     const e = d.etapa || 'Inicial'
     acc[e] = (acc[e] || 0) + 1
     return acc
   }, {})
 
-  // 5. Motivos de Perda
   const porMotivoPerda = dealsPerdidosNoPeriodo.reduce((acc: any, d) => {
     const m = d.motivo_perda || 'Não Informado'
     acc[m] = (acc[m] || 0) + 1
@@ -172,7 +178,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Dashboard Comercial - B.I. RMR</h1>
-          <p className="text-xs text-slate-500 font-medium">Acompanhamento de Desempenho e Eficiência de Vendas</p>
+          <p className="text-xs text-slate-500 font-medium">Acompanhamento de Desempenho, Forecast e Eficiência de Vendas</p>
         </div>
 
         <a href="/bi/admin" className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl transition shadow-sm">
@@ -278,6 +284,70 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* MÓDULO VISUAL DO FORECAST COMERCIAL */}
+      <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-sm border border-slate-800 mb-8">
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h2 className="text-lg font-extrabold tracking-tight flex items-center gap-2">
+              <span>📊 Projeção do Forecast Comercial do Mês</span>
+              <span className="bg-blue-600 text-white text-[10px] px-3 py-1 rounded-full font-bold">
+                {forecastIncluidos.length} Oportunidades Selecionadas
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">Previsão financeira estimada com base nas oportunidades em negociação avançada</p>
+          </div>
+
+          <div className="flex gap-6">
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Setup Projetado</p>
+              <p className="text-xl font-black text-emerald-400">R$ {totalSetupForecast.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total MRR Projetado</p>
+              <p className="text-xl font-black text-blue-400">R$ {totalMrrForecast.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabela do Forecast no Dashboard */}
+        {forecastIncluidos.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase">
+                  <th className="p-2.5">Cliente (Razão Social)</th>
+                  <th className="p-2.5">Vendedor</th>
+                  <th className="p-2.5 text-right">Valor Setup (R$)</th>
+                  <th className="p-2.5 text-right">Valor MRR (R$)</th>
+                  <th className="p-2.5 text-center">Previsão Fechamento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {forecastIncluidos.map((f) => (
+                  <tr key={f.id || f.cliente_razao_social} className="hover:bg-slate-800/40 transition">
+                    <td className="p-2.5 font-bold text-slate-200">{f.cliente_razao_social}</td>
+                    <td className="p-2.5 text-slate-400">{f.vendedor}</td>
+                    <td className="p-2.5 text-right font-bold text-emerald-400">
+                      R$ {Number(f.valor_setup || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-2.5 text-right font-bold text-blue-400">
+                      R$ {Number(f.valor_mrr || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-2.5 text-center text-slate-300 font-medium">
+                      {f.data_previsao ? new Date(f.data_previsao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
+            Nenhuma conta adicionada ao Forecast para o período selecionado. Monte o Forecast no <strong>Painel Admin</strong>.
+          </div>
+        )}
+      </div>
+
       {/* BLOCO DE GRÁFICOS VISUAIS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         
@@ -299,13 +369,11 @@ export default function DashboardPage() {
               return (
                 <div key={item.mes} className="flex-1 flex flex-col items-center h-full justify-end group">
                   <div className="w-full flex justify-center items-end gap-1 h-full">
-                    {/* Barra Criadas */}
                     <div 
                       style={{ height: `${heightCriadas}%` }} 
                       className="w-2.5 bg-blue-500 rounded-t-sm transition-all group-hover:bg-blue-600 relative"
                       title={`Criadas em ${item.mes}: ${item.criadas}`}
                     ></div>
-                    {/* Barra Ganhos */}
                     <div 
                       style={{ height: `${heightGanhos}%` }} 
                       className="w-2.5 bg-emerald-500 rounded-t-sm transition-all group-hover:bg-emerald-600 relative"
